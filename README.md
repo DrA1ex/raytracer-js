@@ -1,5 +1,5 @@
 # Raytracer-JS
-Simple raytraycer demo
+Simple raytraycer implementation for educational or pet-project uses
 
 ## [Demo](https://dra1ex.github.io/raytracer-js/)
 Use **WASD** to move
