@@ -1,5 +1,5 @@
 # Raytracer-JS
-Simple raytracer/raycaster implementation for educational or pet-project uses
+Simple PoC unoptimized raytracer/raycaster implementation.
 
 ## [Demo](https://dra1ex.github.io/raytracer-js/)
 Use **WASD** to move
