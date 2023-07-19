@@ -1,9 +1,11 @@
 import {Vector2} from "./utils/vector.js";
+import * as ColorUtils from "./utils/color.js";
 
 const fov = Math.PI * 70 / 180;
 const traceSteps = 1000;
 const length = 500;
 const size = 400;
+const reflectionCount = 0;
 
 const bgCtx = document.getElementById("canvas").getContext('2d');
 const ctx = document.getElementById("overlay").getContext('2d');
@@ -49,7 +51,8 @@ function trace(originX, originY, originAngle) {
     let angle = radOrigAngle - fov / 2;
 
     for (let i = 0; angle < endAngle; ++i, angle += step) {
-        const collision = emitLight(originVector, angle);
+        const collision = emitLight(originVector, angle, [255, 255, 255], reflectionCount);
+
         if (collision) {
             const relAngle = angle - radOrigAngle;
             intersections.push({
@@ -76,7 +79,7 @@ function trace(originX, originY, originAngle) {
     return intersections;
 }
 
-function emitLight(origin, angle, reflectionCount = 0) {
+function emitLight(origin, angle, light, reflectionCount) {
     const angleVector = Vector2.fromAngle(angle);
     const xStep = angleVector.scaled(1 / angleVector.x).length();
     const yStep = angleVector.scaled(1 / angleVector.y).length();
@@ -97,31 +100,32 @@ function emitLight(origin, angle, reflectionCount = 0) {
             lastComponent = "y";
         }
 
-        if (position.x < 0 || position.y < 0 || position.x > size || position.y > size) break;
+        if (position.x < 0 || position.y < 0 || position.x >= size || position.y >= size) break;
 
         const pixelOffset = 4 * (position.x + position.y * size);
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
-        const distance = origin.distance(position);
-        const colorData = new Array(3);
-
         const normal = getNormal(lastComponent, direction);
+        const reflectedAngle = reflect(angleVector, normal);
+
+        let reflection = null;
+        if (reflectionCount > 0) {
+            reflection = emitLight(position.delta(normal), Math.atan2(reflectedAngle.y, reflectedAngle.x), light, reflectionCount - 1);
+        }
+
+        const colorData = new Array(3);
         const kShadow = Math.sqrt(Math.abs(angleVector.dot(normal)));
         for (let i = 0; i < colorData.length; i++) {
             colorData[i] = PixelData[pixelOffset + i] * kShadow;
         }
 
-        if (reflectionCount > 0) {
-            const reflectedAngle = reflect(angleVector, normal);
-            const reflection = emitLight(position.delta(normal), Math.atan2(reflectedAngle.y, reflectedAngle.x), reflectionCount - 1);
+        ColorUtils.mixColorMultiply(colorData, light);
+        ColorUtils.shadeColor(light, -0.1);
 
-            if (reflection) {
-                const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
-                for (let i = 0; i < colorData.length; i++) {
-                    colorData[i] = Math.min(255, colorData[i] + reflection.colorData[i] * kReflection / 2);
-                }
-            }
+        if (reflection) {
+            const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
+            ColorUtils.mixColorAdd(colorData, reflection.colorData, kReflection);
         }
 
         return {
@@ -129,7 +133,7 @@ function emitLight(origin, angle, reflectionCount = 0) {
             originY: origin.y,
             x: position.x,
             y: position.y,
-            distance,
+            distance: origin.distance(position),
             colorData
         };
     }
@@ -165,8 +169,8 @@ function drawProjection(intersections) {
     }
 }
 
-let angle = 90;
-let x = 200, y = 25;
+let angle = 68.5;
+let x = 164, y = 58;
 let mouseLocked = false;
 let changed = true;
 
