@@ -2,10 +2,10 @@ import {Vector2} from "./utils/vector.js";
 import * as ColorUtils from "./utils/color.js";
 
 const fov = Math.PI * 70 / 180;
-const traceSteps = 1000;
+const traceSteps = 2000;
 const length = 500;
 const size = 400;
-const reflectionCount = 0;
+const reflectionCount = 1;
 
 const bgCtx = document.getElementById("canvas").getContext('2d');
 const ctx = document.getElementById("overlay").getContext('2d');
@@ -18,17 +18,19 @@ bgCtx.lineWidth = 2
 bgCtx.strokeStyle = 'black';
 bgCtx.strokeRect(1, 1, size - 2, size - 2);
 
-bgCtx.fillStyle = 'red';
+bgCtx.fillStyle = "gray";
 bgCtx.fillRect(150, 125, 10, 225);
+bgCtx.fillRect(250, 125, 10, 225);
+bgCtx.fillRect(150, 340, 100, 10);
+
+bgCtx.fillStyle = 'red';
 bgCtx.fillRect(200, 200, 10, 25);
 
 bgCtx.fillStyle = 'green';
 bgCtx.fillRect(200, 150, 10, 25);
-bgCtx.fillRect(250, 125, 10, 225);
 
 bgCtx.fillStyle = 'blue';
 bgCtx.fillRect(200, 250, 10, 25);
-bgCtx.fillRect(150, 340, 100, 10);
 
 const PixelData = bgCtx.getImageData(0, 0, size, size).data;
 
@@ -46,11 +48,11 @@ function trace(originX, originY, originAngle) {
     const originVector = new Vector2(originX, originY);
     const radOrigAngle = (Math.PI * originAngle / 180);
 
-    const step = fov / traceSteps;
-    const endAngle = radOrigAngle + fov / 2;
-    let angle = radOrigAngle - fov / 2;
+    const dt = (size / 2) / Math.tan(fov / 2);
+    const step = size / traceSteps;
 
-    for (let i = 0; angle < endAngle; ++i, angle += step) {
+    for (let i = -traceSteps / 2; i <= traceSteps / 2; i++) {
+        const angle = radOrigAngle + Math.atan(i * step / dt);
         const collision = emitLight(originVector, angle, [255, 255, 255], reflectionCount);
 
         if (collision) {
@@ -60,7 +62,7 @@ function trace(originX, originY, originAngle) {
                 originY: collision.originY,
                 x: collision.x,
                 y: collision.y,
-                distance: collision.distance,
+                distance: Math.cos(relAngle) * collision.distance,
                 colorData: collision.colorData,
                 angle: relAngle
             });
@@ -121,7 +123,7 @@ function emitLight(origin, angle, light, reflectionCount) {
         }
 
         ColorUtils.mixColorMultiply(colorData, light);
-        ColorUtils.shadeColor(light, -0.1);
+        ColorUtils.shadeColor(light, -0.2);
 
         if (reflection) {
             const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
@@ -154,17 +156,16 @@ function reflect(angleVector, normal) {
 }
 
 function drawProjection(intersections) {
-    prCtx.strokeStyle = 'black';
+    const dt = (size / 2) / Math.tan(fov / 2);
 
     for (const {angle, distance, colorData} of intersections) {
         const x = size / 2 + size * (angle / fov);
-
-        prCtx.beginPath();
+        const height = 12 * dt / distance;
 
         prCtx.strokeStyle = `rgba(${colorData[0]}, ${colorData[1]}, ${colorData[2]}, ${10000 / distance}%)`;
-        prCtx.moveTo(x, size / 2 * (1 - 20 / distance));
-        prCtx.lineTo(x, size / 2 * (1 + 20 / distance));
-
+        prCtx.beginPath();
+        prCtx.moveTo(x, size / 2 - height);
+        prCtx.lineTo(x, size / 2 + height);
         prCtx.stroke();
     }
 }
