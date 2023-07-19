@@ -1,22 +1,34 @@
+import {Vector2} from "./utils/vector.js";
+
+const fov = Math.PI * 70 / 180;
+const traceSteps = 1000;
+const length = 500;
+const size = 400;
+
 const bgCtx = document.getElementById("canvas").getContext('2d');
 const ctx = document.getElementById("overlay").getContext('2d');
 const prCtx = document.getElementById("projection").getContext("2d");
 
+prCtx.scale(2, 2);
 
-bgCtx.beginPath();
-bgCtx.fillStyle = 'black';
-bgCtx.rect(150, 125, 10, 225);
-bgCtx.rect(200, 150, 10, 25);
-bgCtx.rect(200, 200, 10, 25);
-bgCtx.rect(200, 250, 10, 25);
-bgCtx.rect(250, 125, 10, 225);
-bgCtx.rect(150, 340, 100, 10);
-bgCtx.fill();
+bgCtx.imageSmoothingEnabled = false;
+bgCtx.lineWidth = 2
+bgCtx.strokeStyle = 'black';
+bgCtx.strokeRect(1, 1, size - 2, size - 2);
 
-const fov = Math.PI * 70 / 180;
-const traceSteps = 150;
-const length = 300;
-const size = 400;
+bgCtx.fillStyle = 'red';
+bgCtx.fillRect(150, 125, 10, 225);
+bgCtx.fillRect(200, 200, 10, 25);
+
+bgCtx.fillStyle = 'green';
+bgCtx.fillRect(200, 150, 10, 25);
+bgCtx.fillRect(250, 125, 10, 225);
+
+bgCtx.fillStyle = 'blue';
+bgCtx.fillRect(200, 250, 10, 25);
+bgCtx.fillRect(150, 340, 100, 10);
+
+const PixelData = bgCtx.getImageData(0, 0, size, size).data;
 
 function trace(originX, originY, originAngle) {
     ctx.strokeStyle = 'pink';
@@ -28,35 +40,28 @@ function trace(originX, originY, originAngle) {
     ctx.fill();
 
     const intersections = [];
+
+    const originVector = new Vector2(originX, originY);
+    const radOrigAngle = (Math.PI * originAngle / 180);
+
     const step = fov / traceSteps;
-
-    const radOrigAngle = (Math.PI * originAngle / 180)
-    const endAngle = radOrigAngle + fov / 2
+    const endAngle = radOrigAngle + fov / 2;
     let angle = radOrigAngle - fov / 2;
+
     for (let i = 0; angle < endAngle; ++i, angle += step) {
-        const vec = [Math.cos(angle), Math.sin(angle)];
-
-        let x = 0, y = 0;
-        for (let j = 1; j < length; ++j) {
-            const pixel = bgCtx.getImageData(x, y, 1, 1).data;
-            x = originX + vec[0] * j;
-            y = originY + vec[1] * j;
-
-            if (pixel[3] === 255) {
-                intersections.push([
-                    x, y, angle - radOrigAngle,
-                    Math.sqrt(Math.pow(x - originX, 2) + Math.pow(y - originY, 2))
-                ]);
-                break;
-            }
+        const collision = emitLight(originVector, angle);
+        if (collision) {
+            const relAngle = angle - radOrigAngle;
+            intersections.push({
+                originX: collision.originX,
+                originY: collision.originY,
+                x: collision.x,
+                y: collision.y,
+                distance: collision.distance,
+                colorData: collision.colorData,
+                angle: relAngle
+            });
         }
-    }
-
-    for (const point of intersections) {
-        ctx.beginPath();
-        ctx.moveTo(originX, originY);
-        ctx.lineTo(point[0], point[1]);
-        ctx.stroke();
     }
 
     ctx.strokeStyle = 'blue';
@@ -71,17 +76,90 @@ function trace(originX, originY, originAngle) {
     return intersections;
 }
 
+function emitLight(origin, angle, reflectionCount = 0) {
+    const angleVector = Vector2.fromAngle(angle);
+    const xStep = angleVector.scaled(1 / angleVector.x).length();
+    const yStep = angleVector.scaled(1 / angleVector.y).length();
+    const direction = new Vector2(Math.sign(angleVector.x), Math.sign(angleVector.y));
+
+    const position = new Vector2(Math.ceil(origin.x), Math.ceil(origin.y));
+    const currentPath = new Vector2();
+
+    let lastComponent = null;
+    while (Math.min(currentPath.x, currentPath.y) < length) {
+        if (currentPath.x + xStep < currentPath.y + yStep) {
+            currentPath.x += xStep;
+            position.x += direction.x;
+            lastComponent = "x";
+        } else {
+            currentPath.y += yStep;
+            position.y += direction.y;
+            lastComponent = "y";
+        }
+
+        if (position.x < 0 || position.y < 0 || position.x > size || position.y > size) break;
+
+        const pixelOffset = 4 * (position.x + position.y * size);
+        const alpha = PixelData[pixelOffset + 3];
+        if (alpha < 255) continue;
+
+        const distance = origin.distance(position);
+        const colorData = new Array(3);
+
+        const normal = getNormal(lastComponent, direction);
+        const kShadow = Math.sqrt(Math.abs(angleVector.dot(normal)));
+        for (let i = 0; i < colorData.length; i++) {
+            colorData[i] = PixelData[pixelOffset + i] * kShadow;
+        }
+
+        if (reflectionCount > 0) {
+            const reflectedAngle = reflect(angleVector, normal);
+            const reflection = emitLight(position.delta(normal), Math.atan2(reflectedAngle.y, reflectedAngle.x), reflectionCount - 1);
+
+            if (reflection) {
+                const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
+                for (let i = 0; i < colorData.length; i++) {
+                    colorData[i] = Math.min(255, colorData[i] + reflection.colorData[i] * kReflection / 2);
+                }
+            }
+        }
+
+        return {
+            originX: origin.x,
+            originY: origin.y,
+            x: position.x,
+            y: position.y,
+            distance,
+            colorData
+        };
+    }
+
+    return null;
+}
+
+function getNormal(lastComponent, direction) {
+    if (lastComponent === "x") {
+        return new Vector2(direction.x > 0 ? 1 : -1, 0);
+    } else {
+        return new Vector2(0, direction.y > 0 ? 1 : -1);
+    }
+}
+
+function reflect(angleVector, normal) {
+    return angleVector.delta(normal.scaled(2 * angleVector.dot(normal)));
+}
+
 function drawProjection(intersections) {
     prCtx.strokeStyle = 'black';
 
-    for (const [, , angle, z] of intersections) {
+    for (const {angle, distance, colorData} of intersections) {
         const x = size / 2 + size * (angle / fov);
 
-        prCtx.lineWidth = 70 * (1 / z);
         prCtx.beginPath();
 
-        prCtx.moveTo(x, size / 2 * (1 - 20 / z));
-        prCtx.lineTo(x, size / 2 * (1 + 20 / z));
+        prCtx.strokeStyle = `rgba(${colorData[0]}, ${colorData[1]}, ${colorData[2]}, ${10000 / distance}%)`;
+        prCtx.moveTo(x, size / 2 * (1 - 20 / distance));
+        prCtx.lineTo(x, size / 2 * (1 + 20 / distance));
 
         prCtx.stroke();
     }
@@ -89,34 +167,63 @@ function drawProjection(intersections) {
 
 let angle = 90;
 let x = 200, y = 25;
+let mouseLocked = false;
 let changed = true;
 
-document.onkeypress = (e) => {
+document.onkeydown = (e) => {
     switch (e.key) {
+        case  "ArrowUp":
         case "w":
             x += Math.cos(Math.PI * angle / 180) * 5;
             y += Math.sin(Math.PI * angle / 180) * 5;
             changed = true;
             break;
+
+        case  "ArrowDown":
         case "s":
             x -= Math.cos(Math.PI * angle / 180) * 3;
             y -= Math.sin(Math.PI * angle / 180) * 3;
             changed = true;
             break;
 
+        case  "ArrowLeft":
         case "a":
-            angle -= 5;
+            x += Math.cos(Math.PI * (angle - 90) / 180) * 5;
+            y += Math.sin(Math.PI * (angle - 90) / 180) * 5;
             changed = true;
             break;
+
+        case  "ArrowRight":
         case "d":
-            angle += 5;
+            x += Math.cos(Math.PI * (angle + 90) / 180) * 5;
+            y += Math.sin(Math.PI * (angle + 90) / 180) * 5;
             changed = true;
             break;
     }
 }
 
+document.onmousemove = (e) => {
+    if (!mouseLocked) return;
 
-setInterval(() => {
+    angle += e.movementX / 2;
+    changed = true;
+}
+
+document.onmousedown = async () => {
+    if (mouseLocked) return
+
+    await document.body.requestPointerLock();
+}
+
+document.onpointerlockchange = (e) => {
+    mouseLocked = !!document.pointerLockElement;
+}
+
+document.onpointerlockerror = (e) => {
+    alert("Unable to lock pointer. Try again later");
+}
+
+function render() {
     if (changed) {
         ctx.clearRect(0, 0, size, size);
         const intersections = trace(~~x, ~~y, angle);
@@ -126,4 +233,8 @@ setInterval(() => {
 
         changed = false;
     }
-}, 1000 / 24);
+
+    requestAnimationFrame(render);
+}
+
+render();
