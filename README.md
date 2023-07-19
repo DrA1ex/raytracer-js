@@ -1,5 +1,5 @@
 # Raytracer-JS
-Simple PoC unoptimized raytracer/raycaster implementation.
+Simple PoC raytracer/raycaster implementation.
 
 ## [Demo](https://dra1ex.github.io/raytracer-js/)
 Use **WASD** to move and **Cursor** to control camera
