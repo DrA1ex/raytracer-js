@@ -42,7 +42,7 @@ export function shadeColor(rgbOut, factor) {
 
 export function toHex(rgb, alpha = 1) {
     function _hex(c) {
-        return Math.max(0, Math.min(255, Math.floor(c))).toString(16);
+        return Math.max(0, Math.min(255, Math.floor(c))).toString(16).padStart(2, "0");
     }
 
     return `#${_hex(rgb[0])}${_hex(rgb[1])}${_hex(rgb[2])}${_hex(alpha * 255)}`;

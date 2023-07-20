@@ -1,49 +1,27 @@
 import {Vector2} from "./utils/vector.js";
 import * as ColorUtils from "./utils/color.js";
+import {AppSettings} from "./settings/app.js";
+import * as CommonUtils from "./utils/common.js";
 
-const MapScale = 1;
-const ScreenScale = devicePixelRatio;
-
-const ScreenResolution = document.body.getClientRects()[0].height - 20;
-const MapResolution = 400;
-const MiniMapResolution = 200;
-const Far = 10000;
-
-const MapSize = MapResolution * MapScale;
-const ScreenSize = ScreenResolution * ScreenScale;
-
-const Fov = Math.PI * 70 / 180;
-const MiniMapConeDistance = 100;
-
-const AccumulateLight = false;
-const EmissionRandomness = 1.0;
-
-const TraceSteps = 1000;
-const TraceDistance = Far;
-
-const ReflectionCount = 1;
-const SubReflectionCount = 4;
-const ReflectionAngleSpread = Math.PI / 90;
-const ReflectionEnergyLoss = 0.1;
-
-const Gamma = 2.0;
+const Settings = AppSettings.fromQueryParams();
 
 const bgCanvas = document.getElementById("canvas");
 const oCanvas = document.getElementById("overlay");
 const prCanvas = document.getElementById("projection");
 
-initCanvas(bgCanvas, MapResolution, MapScale);
-initCanvas(oCanvas, MiniMapResolution, ScreenScale);
-initCanvas(prCanvas, ScreenResolution, ScreenScale);
+initCanvas(bgCanvas, Settings.map.resolution, Settings.map.scale);
+initCanvas(oCanvas, Settings.miniMap.resolution, Settings.screen.scale);
+initCanvas(prCanvas, Settings.screen.resolution, Settings.screen.scale);
 
-bgCanvas.style.width = bgCanvas.style.height = MiniMapResolution + "px";
+bgCanvas.style.width = bgCanvas.style.height = Settings.miniMap.resolution + "px";
 
 const bgCtx = bgCanvas.getContext('2d');
 const oCtx = oCanvas.getContext('2d');
 const prCtx = prCanvas.getContext("2d", {willReadFrequently: true});
 
-oCtx.scale(ScreenScale, ScreenScale);
-prCtx.scale(ScreenScale, ScreenScale);
+oCtx.scale(Settings.screen.scale, Settings.screen.scale);
+prCtx.scale(Settings.screen.scale, Settings.screen.scale);
+
 bgCtx.imageSmoothingEnabled = false;
 
 const mapImage = new Image();
@@ -61,9 +39,9 @@ await new Promise((resolve, reject) => {
     };
 });
 
-bgCtx.drawImage(mapImage, 0, 0, MapSize, MapSize);
+bgCtx.drawImage(mapImage, 0, 0, Settings.map.mapSize, Settings.map.mapSize);
 
-const PixelData = bgCtx.getImageData(0, 0, MapSize, MapSize).data;
+const PixelData = bgCtx.getImageData(0, 0, Settings.map.mapSize, Settings.map.mapSize).data;
 
 let CameraAngle = 56;
 let CameraX = 138, CameraY = 42;
@@ -73,15 +51,18 @@ let Changed = true;
 
 function trace(originVector, radOrigAngle) {
     const intersections = [];
+    const fov = CommonUtils.degToRad(Settings.camera.fov);
+    const {traceSteps} = Settings.rayCasting;
 
-    const dt = (ScreenSize / 2) / Math.tan(Fov / 2);
-    const step = ScreenSize / TraceSteps;
+    const dt = (Settings.screen.resolution / 2) / Math.tan(fov / 2);
+    const step = Settings.screen.resolution / traceSteps;
 
-    for (let i = -TraceSteps / 2; i <= TraceSteps / 2; i++) {
-        const emissionRandom = AccumulateLight ? Math.random() * EmissionRandomness : 0;
+    for (let i = -traceSteps / 2; i <= traceSteps / 2; i++) {
+        const emissionRandom = Settings.rayCasting.accumulateLight
+            ? Math.random() * Settings.rayCasting.emissionRandomness : 0;
         const currentStep = (i + emissionRandom) * step;
         const angle = radOrigAngle + Math.atan(currentStep / dt);
-        const collision = emitLight(originVector, angle, [255, 255, 255], ReflectionCount);
+        const collision = emitLight(originVector, angle, [255, 255, 255], Settings.reflection.count);
 
         if (collision) {
             const relAngle = angle - radOrigAngle;
@@ -101,6 +82,9 @@ function trace(originVector, radOrigAngle) {
 }
 
 function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
+    const {mapSize} = Settings.map;
+    const {traceDistance} = Settings.rayCasting;
+
     const angleVector = Vector2.fromAngle(angle);
     const xStep = angleVector.scaled(1 / angleVector.x).length();
     const yStep = angleVector.scaled(1 / angleVector.y).length();
@@ -110,7 +94,7 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
     const currentPath = new Vector2();
 
     let lastComponent = null;
-    while (Math.min(currentPath.x, currentPath.y) < lastDistance + TraceDistance) {
+    while (Math.min(currentPath.x, currentPath.y) < lastDistance + traceDistance) {
         if (currentPath.x + xStep < currentPath.y + yStep) {
             currentPath.x += xStep;
             position.x += direction.x;
@@ -121,9 +105,11 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
             lastComponent = "y";
         }
 
-        if (position.x < 0 || position.y < 0 || position.x >= MapSize || position.y >= MapSize) break;
+        if (position.x < 0 || position.y < 0
+            || position.x >= mapSize
+            || position.y >= mapSize) break;
 
-        const pixelOffset = 4 * (position.x + position.y * MapSize);
+        const pixelOffset = 4 * (position.x + position.y * mapSize);
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
@@ -145,7 +131,7 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
         }
 
         ColorUtils.mixColorMultiply(colorData, light);
-        ColorUtils.shadeColor(light, -ReflectionEnergyLoss);
+        ColorUtils.shadeColor(light, -Settings.reflection.energyLoss);
 
         if (reflectionColor) {
             const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
@@ -166,13 +152,16 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
 }
 
 function getRayReflection(origin, angle, light, reflectionCount, distance) {
+    const {subStepCount} = Settings.reflection;
+    const spread = CommonUtils.degToRad(Settings.reflection.spread);
+
     const rAngle = Math.atan2(angle.y, angle.x);
     const originalLight = light.concat();
 
     let reflectionColor = null;
-    for (let i = 0; i < SubReflectionCount; i++) {
+    for (let i = 0; i < subStepCount; i++) {
         const lightCopy = originalLight.concat();
-        const rayAngle = rAngle + ReflectionAngleSpread * (Math.random() - 0.5);
+        const rayAngle = rAngle + spread * (Math.random() - 0.5);
         const reflection = emitLight(origin, rayAngle, lightCopy, reflectionCount - 1, distance);
 
         if (!reflection) continue;
@@ -198,20 +187,25 @@ function getNormal(lastComponent, direction) {
 }
 
 function drawProjection(intersections) {
-    const dt = (ScreenResolution / 2) / Math.tan(Fov / 2);
+    const screenResolution = Settings.screen.resolution;
+    const fov = CommonUtils.degToRad(Settings.camera.fov);
+    const far = Settings.camera.far;
+    const gamma = Settings.camera.gamma;
+
+    const dt = (screenResolution / 2) / Math.tan(fov / 2);
 
     for (const {angle, distance, colorData} of intersections) {
-        const x = ScreenResolution / 2 + ScreenResolution * (angle / Fov);
+        const x = screenResolution / 2 + screenResolution * (angle / fov);
         const height = 12 * dt / distance;
 
         for (let i = 0; i < colorData.length; i++) {
-            colorData[i] = 32 + 192 * Math.pow(colorData[i] / 255, 1 / Gamma);
+            colorData[i] = 32 + 192 * Math.pow(colorData[i] / 255, 1 / gamma);
         }
 
-        prCtx.strokeStyle = ColorUtils.toHex(colorData, Far / distance / 100);
+        prCtx.strokeStyle = ColorUtils.toHex(colorData, far / distance / 100);
         prCtx.beginPath();
-        prCtx.moveTo(x, ScreenResolution / 2 - height);
-        prCtx.lineTo(x, ScreenResolution / 2 + height);
+        prCtx.moveTo(x, screenResolution / 2 - height);
+        prCtx.lineTo(x, screenResolution / 2 + height);
         prCtx.stroke();
     }
 }
@@ -283,12 +277,12 @@ function render() {
 
     drawMiniMap(radAngle);
 
-    if (AccumulateLight) {
+    if (Settings.rayCasting.accumulateLight) {
         const intersections = trace(position, radAngle);
         accumulateProjectionLight(intersections);
     } else if (Changed) {
         const intersections = trace(position, radAngle);
-        prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
+        prCtx.clearRect(0, 0, Settings.screen.resolution, Settings.screen.resolution);
         drawProjection(intersections);
     }
 
@@ -297,15 +291,18 @@ function render() {
 }
 
 function drawMiniMap(radAngle) {
-    oCtx.clearRect(0, 0, MiniMapResolution, MiniMapResolution);
+    const resolution = Settings.miniMap.resolution;
+    const fov = CommonUtils.degToRad(Settings.camera.fov);
+
+    oCtx.clearRect(0, 0, resolution, resolution);
     oCtx.strokeStyle = 'pink';
     oCtx.fillStyle = 'red';
 
-    const miniMapScale = MiniMapResolution / MapResolution * MapScale;
+    const miniMapScale = resolution / Settings.map.resolution * Settings.map.scale;
     const x = Math.floor(CameraX * miniMapScale),
         y = Math.floor(CameraY * miniMapScale);
-    const coneDistance = Math.max(20, MiniMapConeDistance * miniMapScale);
-    const originSize = Math.max(4, 10 * miniMapScale);
+    const coneDistance = Math.max(Settings.miniMap.coneMinDistance, Settings.miniMap.coneDistance * miniMapScale);
+    const originSize = Math.max(Settings.miniMap.originMinSize, Settings.miniMap.originSize * miniMapScale);
 
     oCtx.beginPath();
     oCtx.fillStyle = 'red';
@@ -315,8 +312,8 @@ function drawMiniMap(radAngle) {
     oCtx.strokeStyle = 'blue';
     oCtx.beginPath();
     oCtx.moveTo(x, y);
-    oCtx.lineTo(x + coneDistance * Math.cos(radAngle - Fov / 2), y + coneDistance * Math.sin(radAngle - Fov / 2));
-    oCtx.lineTo(x + coneDistance * Math.cos(radAngle + Fov / 2), y + coneDistance * Math.sin(radAngle + Fov / 2));
+    oCtx.lineTo(x + coneDistance * Math.cos(radAngle - fov / 2), y + coneDistance * Math.sin(radAngle - fov / 2));
+    oCtx.lineTo(x + coneDistance * Math.cos(radAngle + fov / 2), y + coneDistance * Math.sin(radAngle + fov / 2));
     oCtx.closePath();
 
     oCtx.stroke();
@@ -326,14 +323,14 @@ function accumulateProjectionLight(intersections) {
     let prevStateData = null;
 
     if (Changed) {
-        prCtx.clearRect(0, 0, ScreenResolution, ScreenResolution);
+        prCtx.clearRect(0, 0, Settings.screen.resolution, Settings.screen.resolution);
     } else {
-        prevStateData = prCtx.getImageData(0, 0, ScreenSize, ScreenSize).data;
+        prevStateData = prCtx.getImageData(0, 0, Settings.screen.screenSize, Settings.screen.screenSize).data;
     }
 
     drawProjection(intersections);
 
-    const currentState = prCtx.getImageData(0, 0, ScreenSize, ScreenSize);
+    const currentState = prCtx.getImageData(0, 0, Settings.screen.screenSize, Settings.screen.screenSize);
     const currentStateData = currentState.data;
 
     if (!Changed) {
