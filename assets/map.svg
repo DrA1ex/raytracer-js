@@ -1,0 +1,17 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" xmlns:bx="https://boxy-svg.com">
+    <rect x="249.754" y="100" width="10" height="250" style="paint-order: fill; fill: rgb(206, 206, 206);"></rect>
+    <rect x="140.575" y="100" width="10" height="250" style="paint-order: fill; fill: rgb(206, 206, 206);"></rect>
+    <rect x="140.575" y="290" width="49.694" height="10" style="paint-order: fill; fill: rgb(206, 206, 206);"></rect>
+    <ellipse style="fill: rgb(105, 221, 59);" cx="300.371" cy="170.728" rx="10" ry="10"></ellipse>
+    <ellipse style="fill: rgb(121, 59, 221);" cx="325.813" cy="194.963" rx="10" ry="10"></ellipse>
+    <ellipse style="fill: rgb(59, 221, 213);" cx="354.892" cy="170.728" rx="10" ry="10"></ellipse>
+    <ellipse style="fill: rgb(59, 221, 213);" cx="300.371" cy="220.963" rx="10" ry="10"></ellipse>
+    <ellipse style="fill: rgb(132, 221, 59);" cx="354.892" cy="220.963" rx="10" ry="10"></ellipse>
+    <rect x="186.328" y="129.99" width="25" height="25" style="fill: rgb(255, 47, 47);"></rect>
+    <rect x="186.328" y="179.225" width="25" height="25" style="fill: rgb(47, 255, 71);"></rect>
+    <rect x="186.328" y="221.828" width="25" height="25" style="fill: rgb(47, 50, 255);"></rect>
+    <path d="M 70.251 154.99 L 112.041 238.571 L 28.46 238.571 L 70.251 154.99 Z" style="fill: rgb(35, 241, 179);" bx:shape="triangle 28.46 154.99 83.581 83.581 0.5 0 1@2571a1cc"></path>
+    <rect x="210.06" y="290" width="49.694" height="10" style="paint-order: fill; fill: rgb(206, 206, 206);"></rect>
+    <rect x="149.754" y="340" width="101" height="10" style="paint-order: fill; fill: rgb(241, 131, 47);"></rect>
+    <rect x="0" y="0" width="400" height="400" style="fill:none; stroke: slategrey; stroke-width: 2px;"></rect>
+</svg>

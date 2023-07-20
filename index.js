@@ -24,28 +24,28 @@ const prCtx = document.getElementById("projection").getContext("2d", {willReadFr
 prCtx.scale(2, 2);
 
 bgCtx.imageSmoothingEnabled = false;
-bgCtx.lineWidth = 2
-bgCtx.strokeStyle = 'slategrey';
-bgCtx.strokeRect(0, 0, ScreenSize, ScreenSize);
+const mapImage = new Image();
 
-bgCtx.fillStyle = "gray";
-bgCtx.fillRect(150, 125, 10, 225);
-bgCtx.fillRect(250, 125, 10, 225);
-bgCtx.fillRect(150, 340, 100, 10);
+await new Promise((resolve, reject) => {
+    mapImage.src = "./assets/map.svg";
+    mapImage.onload = () => {
+        mapImage.onload = null;
+        mapImage.onerror = null;
+        resolve()
+    };
 
-bgCtx.fillStyle = 'red';
-bgCtx.fillRect(200, 200, 10, 25);
+    mapImage.onerror = (e) => {
+        alert(new Error(e.message ?? "Unable to load map"))
+        reject()
+    };
+});
 
-bgCtx.fillStyle = 'green';
-bgCtx.fillRect(200, 150, 10, 25);
-
-bgCtx.fillStyle = 'blue';
-bgCtx.fillRect(200, 250, 10, 25);
+bgCtx.drawImage(mapImage, 0, 0, ScreenSize, ScreenSize);
 
 const PixelData = bgCtx.getImageData(0, 0, ScreenSize, ScreenSize).data;
 
-let CameraAngle = 68.5;
-let CameraX = 164, CameraY = 58;
+let CameraAngle = 56;
+let CameraX = 138, CameraY = 42;
 
 let MouseLocked = false;
 let Changed = true;
@@ -249,38 +249,35 @@ document.onpointerlockerror = (_) => {
 }
 
 function render() {
-    {
-        const radAngle = (Math.PI * CameraAngle / 180)
+    const radAngle = (Math.PI * CameraAngle / 180)
 
-        ctx.clearRect(0, 0, ScreenSize, ScreenSize);
-        ctx.strokeStyle = 'pink';
-        ctx.fillStyle = 'red';
+    ctx.clearRect(0, 0, ScreenSize, ScreenSize);
+    ctx.strokeStyle = 'pink';
+    ctx.fillStyle = 'red';
 
-        ctx.beginPath();
-        ctx.fillStyle = 'red';
-        ctx.rect(~~CameraX - 5, ~~CameraY - 5, 10, 10);
-        ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = 'red';
+    ctx.rect(~~CameraX - 5, ~~CameraY - 5, 10, 10);
+    ctx.fill();
 
-        ctx.strokeStyle = 'blue';
-        ctx.beginPath();
-        ctx.moveTo(CameraX, CameraY);
-        ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle - Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle - Fov / 2));
-        ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle + Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle + Fov / 2));
-        ctx.closePath();
+    ctx.strokeStyle = 'blue';
+    ctx.beginPath();
+    ctx.moveTo(CameraX, CameraY);
+    ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle - Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle - Fov / 2));
+    ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle + Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle + Fov / 2));
+    ctx.closePath();
 
-        ctx.stroke();
+    ctx.stroke();
 
-        const intersections = trace(new Vector2(~~CameraX, ~~CameraY), radAngle);
-        if (AccumulateLight) {
-            accumulateProjectionLight(intersections);
-        } else if (Changed) {
-            prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
-            drawProjection(intersections);
-        }
-
-        Changed = false;
+    const intersections = trace(new Vector2(~~CameraX, ~~CameraY), radAngle);
+    if (AccumulateLight) {
+        accumulateProjectionLight(intersections);
+    } else if (Changed) {
+        prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
+        drawProjection(intersections);
     }
 
+    Changed = false;
     requestAnimationFrame(render);
 }
 
