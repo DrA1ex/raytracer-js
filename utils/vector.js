@@ -256,6 +256,10 @@ export class Vector2 {
         return this;
     }
 
+    reflected(normal) {
+        return this.delta(normal.scaled(2 * this.dot(normal)));
+    }
+
     toString() {
         return `[${this.x}, ${this.y}]`;
     }

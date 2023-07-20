@@ -5,17 +5,21 @@ const Fov = Math.PI * 70 / 180;
 const TraceSteps = 1000;
 const TraceDistance = 10000;
 const ScreenSize = 400;
+const MiniMapConeDistance = 100;
+
+const AccumulateLight = false;
+const EmissionRandomness = 1.0;
 
 const ReflectionCount = 1;
-const SubReflectionCount = 3;
-const ReflectionAngleSpread = Math.PI / 32;
+const SubReflectionCount = 4;
+const ReflectionAngleSpread = Math.PI / 90;
 const ReflectionEnergyLoss = 0.1;
 
 const Gamma = 2.0;
 
 const bgCtx = document.getElementById("canvas").getContext('2d');
 const ctx = document.getElementById("overlay").getContext('2d');
-const prCtx = document.getElementById("projection").getContext("2d");
+const prCtx = document.getElementById("projection").getContext("2d", {willReadFrequently: true});
 
 prCtx.scale(2, 2);
 
@@ -53,7 +57,9 @@ function trace(originVector, radOrigAngle) {
     const step = ScreenSize / TraceSteps;
 
     for (let i = -TraceSteps / 2; i <= TraceSteps / 2; i++) {
-        const angle = radOrigAngle + Math.atan(i * step / dt);
+        const emissionRandom = AccumulateLight ? Math.random() * EmissionRandomness : 0;
+        const currentStep = (i + emissionRandom) * step;
+        const angle = radOrigAngle + Math.atan(currentStep / dt);
         const collision = emitLight(originVector, angle, [255, 255, 255], ReflectionCount);
 
         if (collision) {
@@ -102,7 +108,7 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
 
         const distance = origin.distance(position);
         const normal = getNormal(lastComponent, direction);
-        const reflectedAngle = reflect(angleVector, normal);
+        const reflectedAngle = angleVector.reflected(normal);
 
         let reflectionColor = null;
         if (reflectionCount > 0) {
@@ -168,10 +174,6 @@ function getNormal(lastComponent, direction) {
     } else {
         return new Vector2(0, direction.y > 0 ? 1 : -1);
     }
-}
-
-function reflect(angleVector, normal) {
-    return angleVector.delta(normal.scaled(2 * angleVector.dot(normal)));
 }
 
 function drawProjection(intersections) {
@@ -247,7 +249,7 @@ document.onpointerlockerror = (_) => {
 }
 
 function render() {
-    if (Changed) {
+    {
         const radAngle = (Math.PI * CameraAngle / 180)
 
         ctx.clearRect(0, 0, ScreenSize, ScreenSize);
@@ -262,21 +264,47 @@ function render() {
         ctx.strokeStyle = 'blue';
         ctx.beginPath();
         ctx.moveTo(CameraX, CameraY);
-        ctx.lineTo(CameraX + TraceDistance * Math.cos(radAngle - Fov / 2), CameraY + TraceDistance * Math.sin(radAngle - Fov / 2));
-        ctx.lineTo(CameraX + TraceDistance * Math.cos(radAngle + Fov / 2), CameraY + TraceDistance * Math.sin(radAngle + Fov / 2));
+        ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle - Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle - Fov / 2));
+        ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle + Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle + Fov / 2));
         ctx.closePath();
 
         ctx.stroke();
 
         const intersections = trace(new Vector2(~~CameraX, ~~CameraY), radAngle);
-
-        prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
-        drawProjection(intersections);
+        if (AccumulateLight) {
+            accumulateProjectionLight(intersections);
+        } else if (Changed) {
+            prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
+            drawProjection(intersections);
+        }
 
         Changed = false;
     }
 
     requestAnimationFrame(render);
+}
+
+function accumulateProjectionLight(intersections) {
+    let prevStateData = null;
+
+    if (Changed) {
+        prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
+    } else {
+        prevStateData = prCtx.getImageData(0, 0, ScreenSize * 2, ScreenSize * 2).data;
+    }
+
+    drawProjection(intersections);
+
+    const currentState = prCtx.getImageData(0, 0, ScreenSize * 2, ScreenSize * 2);
+    const currentStateData = currentState.data;
+
+    if (!Changed) {
+        for (let i = 0; i < currentStateData.length; i += 4) {
+            ColorUtils.mixColorLinearOffset(currentStateData, i, prevStateData, i, currentStateData, i, 0.5);
+        }
+
+        prCtx.putImageData(currentState, 0, 0);
+    }
 }
 
 render();
