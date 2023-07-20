@@ -1,14 +1,21 @@
 import {Vector2} from "./utils/vector.js";
 import * as ColorUtils from "./utils/color.js";
 
+const MapScale = 1;
+const ScreenResolution = 400;
+const Far = 10000;
+const MapSize = ScreenResolution * MapScale;
+
+const ScreenScale = devicePixelRatio;
+const ScreenSize = ScreenResolution * ScreenScale;
 const Fov = Math.PI * 70 / 180;
-const TraceSteps = 1000;
-const TraceDistance = 10000;
-const ScreenSize = 400;
 const MiniMapConeDistance = 100;
 
 const AccumulateLight = false;
 const EmissionRandomness = 1.0;
+
+const TraceSteps = 1000;
+const TraceDistance = Far;
 
 const ReflectionCount = 1;
 const SubReflectionCount = 4;
@@ -17,15 +24,23 @@ const ReflectionEnergyLoss = 0.1;
 
 const Gamma = 2.0;
 
-const bgCtx = document.getElementById("canvas").getContext('2d');
-const ctx = document.getElementById("overlay").getContext('2d');
-const prCtx = document.getElementById("projection").getContext("2d", {willReadFrequently: true});
+const bgCanvas = document.getElementById("canvas");
+const oCanvas = document.getElementById("overlay");
+const prCanvas = document.getElementById("projection");
 
-prCtx.scale(2, 2);
+initCanvas(bgCanvas, MapScale);
+initCanvas(oCanvas, ScreenScale);
+initCanvas(prCanvas, ScreenScale);
 
+const bgCtx = bgCanvas.getContext('2d');
+const oCtx = oCanvas.getContext('2d');
+const prCtx = prCanvas.getContext("2d", {willReadFrequently: true});
+
+oCtx.scale(ScreenScale, ScreenScale);
+prCtx.scale(ScreenScale, ScreenScale);
 bgCtx.imageSmoothingEnabled = false;
-const mapImage = new Image();
 
+const mapImage = new Image();
 await new Promise((resolve, reject) => {
     mapImage.src = "./assets/map.svg";
     mapImage.onload = () => {
@@ -40,9 +55,9 @@ await new Promise((resolve, reject) => {
     };
 });
 
-bgCtx.drawImage(mapImage, 0, 0, ScreenSize, ScreenSize);
+bgCtx.drawImage(mapImage, 0, 0, MapSize, MapSize);
 
-const PixelData = bgCtx.getImageData(0, 0, ScreenSize, ScreenSize).data;
+const PixelData = bgCtx.getImageData(0, 0, MapSize, MapSize).data;
 
 let CameraAngle = 56;
 let CameraX = 138, CameraY = 42;
@@ -100,9 +115,9 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
             lastComponent = "y";
         }
 
-        if (position.x < 0 || position.y < 0 || position.x >= ScreenSize || position.y >= ScreenSize) break;
+        if (position.x < 0 || position.y < 0 || position.x >= MapSize || position.y >= MapSize) break;
 
-        const pixelOffset = 4 * (position.x + position.y * ScreenSize);
+        const pixelOffset = 4 * (position.x + position.y * MapSize);
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
@@ -177,22 +192,30 @@ function getNormal(lastComponent, direction) {
 }
 
 function drawProjection(intersections) {
-    const dt = (ScreenSize / 2) / Math.tan(Fov / 2);
+    const dt = (ScreenResolution / 2) / Math.tan(Fov / 2);
 
     for (const {angle, distance, colorData} of intersections) {
-        const x = ScreenSize / 2 + ScreenSize * (angle / Fov);
+        const x = ScreenResolution / 2 + ScreenResolution * (angle / Fov);
         const height = 12 * dt / distance;
 
         for (let i = 0; i < colorData.length; i++) {
             colorData[i] = 32 + 192 * Math.pow(colorData[i] / 255, 1 / Gamma);
         }
 
-        prCtx.strokeStyle = `rgba(${colorData[0]}, ${colorData[1]}, ${colorData[2]}, ${TraceDistance / distance}%)`;
+        prCtx.strokeStyle = ColorUtils.toHex(colorData, Far / distance / 100);
         prCtx.beginPath();
-        prCtx.moveTo(x, ScreenSize / 2 - height);
-        prCtx.lineTo(x, ScreenSize / 2 + height);
+        prCtx.moveTo(x, ScreenResolution / 2 - height);
+        prCtx.lineTo(x, ScreenResolution / 2 + height);
         prCtx.stroke();
     }
+}
+
+
+function initCanvas(canvas, scale) {
+    canvas.width = ScreenResolution * scale;
+    canvas.height = ScreenResolution * scale;
+    canvas.style.width = ScreenResolution + "px";
+    canvas.style.height = ScreenResolution + "px";
 }
 
 document.onkeydown = (e) => {
@@ -250,29 +273,15 @@ document.onpointerlockerror = (_) => {
 
 function render() {
     const radAngle = (Math.PI * CameraAngle / 180)
+    const position = new Vector2(Math.floor(CameraX), Math.floor(CameraY));
 
-    ctx.clearRect(0, 0, ScreenSize, ScreenSize);
-    ctx.strokeStyle = 'pink';
-    ctx.fillStyle = 'red';
+    drawUi(radAngle);
 
-    ctx.beginPath();
-    ctx.fillStyle = 'red';
-    ctx.rect(~~CameraX - 5, ~~CameraY - 5, 10, 10);
-    ctx.fill();
-
-    ctx.strokeStyle = 'blue';
-    ctx.beginPath();
-    ctx.moveTo(CameraX, CameraY);
-    ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle - Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle - Fov / 2));
-    ctx.lineTo(CameraX + MiniMapConeDistance * Math.cos(radAngle + Fov / 2), CameraY + MiniMapConeDistance * Math.sin(radAngle + Fov / 2));
-    ctx.closePath();
-
-    ctx.stroke();
-
-    const intersections = trace(new Vector2(~~CameraX, ~~CameraY), radAngle);
     if (AccumulateLight) {
+        const intersections = trace(position, radAngle);
         accumulateProjectionLight(intersections);
     } else if (Changed) {
+        const intersections = trace(position, radAngle);
         prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
         drawProjection(intersections);
     }
@@ -281,18 +290,43 @@ function render() {
     requestAnimationFrame(render);
 }
 
+function drawUi(radAngle) {
+    oCtx.clearRect(0, 0, ScreenResolution, ScreenResolution);
+    oCtx.strokeStyle = 'pink';
+    oCtx.fillStyle = 'red';
+
+    const x = Math.floor(CameraX / MapScale),
+        y = Math.floor(CameraY / MapScale);
+    const coneDistance = MiniMapConeDistance / MapScale;
+    const originSize = 10 / MapScale;
+
+    oCtx.beginPath();
+    oCtx.fillStyle = 'red';
+    oCtx.rect(x - originSize / 2, y - originSize / 2, originSize, originSize);
+    oCtx.fill();
+
+    oCtx.strokeStyle = 'blue';
+    oCtx.beginPath();
+    oCtx.moveTo(x, y);
+    oCtx.lineTo(x + coneDistance * Math.cos(radAngle - Fov / 2), y + coneDistance * Math.sin(radAngle - Fov / 2));
+    oCtx.lineTo(x + coneDistance * Math.cos(radAngle + Fov / 2), y + coneDistance * Math.sin(radAngle + Fov / 2));
+    oCtx.closePath();
+
+    oCtx.stroke();
+}
+
 function accumulateProjectionLight(intersections) {
     let prevStateData = null;
 
     if (Changed) {
-        prCtx.clearRect(0, 0, ScreenSize, ScreenSize);
+        prCtx.clearRect(0, 0, ScreenResolution, ScreenResolution);
     } else {
-        prevStateData = prCtx.getImageData(0, 0, ScreenSize * 2, ScreenSize * 2).data;
+        prevStateData = prCtx.getImageData(0, 0, ScreenSize, ScreenSize).data;
     }
 
     drawProjection(intersections);
 
-    const currentState = prCtx.getImageData(0, 0, ScreenSize * 2, ScreenSize * 2);
+    const currentState = prCtx.getImageData(0, 0, ScreenSize, ScreenSize);
     const currentStateData = currentState.data;
 
     if (!Changed) {
