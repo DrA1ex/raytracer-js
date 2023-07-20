@@ -1,8 +1,7 @@
 export function mixColorLinear(rgbOut, rgbMixed, factor) {
-    const out = new Array(3);
-
     for (let i = 0; i < 3; i++) {
-        rgbOut[i] = Math.max(0, Math.min(255, rgbOut[i] - (rgbOut[i] - rgbMixed[i]) * factor));
+        const mixed = rgbOut[i] - (rgbOut[i] - rgbMixed[i]) * factor;
+        rgbOut[i] = Math.max(0, Math.min(255, Math.floor(mixed)));
     }
 }
 
