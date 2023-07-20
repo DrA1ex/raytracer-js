@@ -7,6 +7,8 @@ const length = 500;
 const size = 400;
 const reflectionCount = 1;
 
+const gamma = 2;
+
 const bgCtx = document.getElementById("canvas").getContext('2d');
 const ctx = document.getElementById("overlay").getContext('2d');
 const prCtx = document.getElementById("projection").getContext("2d");
@@ -15,8 +17,8 @@ prCtx.scale(2, 2);
 
 bgCtx.imageSmoothingEnabled = false;
 bgCtx.lineWidth = 2
-bgCtx.strokeStyle = 'black';
-bgCtx.strokeRect(1, 1, size - 2, size - 2);
+bgCtx.strokeStyle = 'slategrey';
+bgCtx.strokeRect(0, 0, size, size);
 
 bgCtx.fillStyle = "gray";
 bgCtx.fillRect(150, 125, 10, 225);
@@ -81,7 +83,7 @@ function trace(originX, originY, originAngle) {
     return intersections;
 }
 
-function emitLight(origin, angle, light, reflectionCount) {
+function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
     const angleVector = Vector2.fromAngle(angle);
     const xStep = angleVector.scaled(1 / angleVector.x).length();
     const yStep = angleVector.scaled(1 / angleVector.y).length();
@@ -91,7 +93,7 @@ function emitLight(origin, angle, light, reflectionCount) {
     const currentPath = new Vector2();
 
     let lastComponent = null;
-    while (Math.min(currentPath.x, currentPath.y) < length) {
+    while (Math.min(currentPath.x, currentPath.y) < lastDistance + length) {
         if (currentPath.x + xStep < currentPath.y + yStep) {
             currentPath.x += xStep;
             position.x += direction.x;
@@ -108,18 +110,22 @@ function emitLight(origin, angle, light, reflectionCount) {
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
+        const distance = origin.distance(position);
         const normal = getNormal(lastComponent, direction);
         const reflectedAngle = reflect(angleVector, normal);
 
         let reflection = null;
         if (reflectionCount > 0) {
-            reflection = emitLight(position.delta(normal), Math.atan2(reflectedAngle.y, reflectedAngle.x), light, reflectionCount - 1);
+            reflection = emitLight(position.delta(normal), Math.atan2(reflectedAngle.y, reflectedAngle.x),
+                light, reflectionCount - 1, distance);
         }
 
         const colorData = new Array(3);
-        const kShadow = Math.sqrt(Math.abs(angleVector.dot(normal)));
+        const kDiffuse = Math.sqrt(Math.max(0, angleVector.dot(normal)));
+        const kSpecular = Math.pow(Math.max(0, angleVector.dot(normal.perpendicular())), 2);
         for (let i = 0; i < colorData.length; i++) {
-            colorData[i] = PixelData[pixelOffset + i] * kShadow;
+            const color = PixelData[pixelOffset + i] * (kDiffuse + kSpecular);
+            colorData[i] = Math.min(255, Math.floor(color));
         }
 
         ColorUtils.mixColorMultiply(colorData, light);
@@ -135,7 +141,7 @@ function emitLight(origin, angle, light, reflectionCount) {
             originY: origin.y,
             x: position.x,
             y: position.y,
-            distance: origin.distance(position),
+            distance,
             colorData
         };
     }
@@ -162,7 +168,11 @@ function drawProjection(intersections) {
         const x = size / 2 + size * (angle / fov);
         const height = 12 * dt / distance;
 
-        prCtx.strokeStyle = `rgba(${colorData[0]}, ${colorData[1]}, ${colorData[2]}, ${10000 / distance}%)`;
+        for (let i = 0; i < colorData.length; i++) {
+            colorData[i] = 32 + 192 * Math.pow(colorData[i] / 255, 1 / gamma);
+        }
+
+        prCtx.strokeStyle = `rgba(${colorData[0]}, ${colorData[1]}, ${colorData[2]}, ${length / distance * 10}%)`;
         prCtx.beginPath();
         prCtx.moveTo(x, size / 2 - height);
         prCtx.lineTo(x, size / 2 + height);
