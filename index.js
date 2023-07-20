@@ -2,12 +2,16 @@ import {Vector2} from "./utils/vector.js";
 import * as ColorUtils from "./utils/color.js";
 
 const MapScale = 1;
-const ScreenResolution = 400;
-const Far = 10000;
-const MapSize = ScreenResolution * MapScale;
-
 const ScreenScale = devicePixelRatio;
+
+const ScreenResolution = document.body.getClientRects()[0].height - 20;
+const MapResolution = 400;
+const MiniMapResolution = 200;
+const Far = 10000;
+
+const MapSize = MapResolution * MapScale;
 const ScreenSize = ScreenResolution * ScreenScale;
+
 const Fov = Math.PI * 70 / 180;
 const MiniMapConeDistance = 100;
 
@@ -28,9 +32,11 @@ const bgCanvas = document.getElementById("canvas");
 const oCanvas = document.getElementById("overlay");
 const prCanvas = document.getElementById("projection");
 
-initCanvas(bgCanvas, MapScale);
-initCanvas(oCanvas, ScreenScale);
-initCanvas(prCanvas, ScreenScale);
+initCanvas(bgCanvas, MapResolution, MapScale);
+initCanvas(oCanvas, MiniMapResolution, ScreenScale);
+initCanvas(prCanvas, ScreenResolution, ScreenScale);
+
+bgCanvas.style.width = bgCanvas.style.height = MiniMapResolution + "px";
 
 const bgCtx = bgCanvas.getContext('2d');
 const oCtx = oCanvas.getContext('2d');
@@ -131,8 +137,8 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
         }
 
         const colorData = new Array(3);
-        const kDiffuse = Math.sqrt(Math.max(0, angleVector.dot(normal)));
-        const kSpecular = Math.pow(Math.max(0, angleVector.dot(normal.perpendicular())), 2);
+        const kDiffuse = Math.max(0, angleVector.dot(normal));
+        const kSpecular = Math.pow(Math.max(0, angleVector.dot(normal.perpendicular())), 4);
         for (let i = 0; i < colorData.length; i++) {
             const color = PixelData[pixelOffset + i] * (kDiffuse + kSpecular);
             colorData[i] = Math.min(255, Math.floor(color));
@@ -211,11 +217,11 @@ function drawProjection(intersections) {
 }
 
 
-function initCanvas(canvas, scale) {
-    canvas.width = ScreenResolution * scale;
-    canvas.height = ScreenResolution * scale;
-    canvas.style.width = ScreenResolution + "px";
-    canvas.style.height = ScreenResolution + "px";
+function initCanvas(canvas, size, scale) {
+    canvas.width = size * scale;
+    canvas.height = size * scale;
+    canvas.style.width = size + "px";
+    canvas.style.height = size + "px";
 }
 
 document.onkeydown = (e) => {
@@ -275,7 +281,7 @@ function render() {
     const radAngle = (Math.PI * CameraAngle / 180)
     const position = new Vector2(Math.floor(CameraX), Math.floor(CameraY));
 
-    drawUi(radAngle);
+    drawMiniMap(radAngle);
 
     if (AccumulateLight) {
         const intersections = trace(position, radAngle);
@@ -290,15 +296,16 @@ function render() {
     requestAnimationFrame(render);
 }
 
-function drawUi(radAngle) {
-    oCtx.clearRect(0, 0, ScreenResolution, ScreenResolution);
+function drawMiniMap(radAngle) {
+    oCtx.clearRect(0, 0, MiniMapResolution, MiniMapResolution);
     oCtx.strokeStyle = 'pink';
     oCtx.fillStyle = 'red';
 
-    const x = Math.floor(CameraX / MapScale),
-        y = Math.floor(CameraY / MapScale);
-    const coneDistance = MiniMapConeDistance / MapScale;
-    const originSize = 10 / MapScale;
+    const miniMapScale = MiniMapResolution / MapResolution * MapScale;
+    const x = Math.floor(CameraX * miniMapScale),
+        y = Math.floor(CameraY * miniMapScale);
+    const coneDistance = Math.max(20, MiniMapConeDistance * miniMapScale);
+    const originSize = Math.max(4, 10 * miniMapScale);
 
     oCtx.beginPath();
     oCtx.fillStyle = 'red';

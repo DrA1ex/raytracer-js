@@ -1,12 +1,12 @@
 <html lang="ru">
-<body>
-<canvas id="canvas"
-        style="border: 1px solid;position: absolute; top: 10px; left: 10px;"></canvas>
-<canvas id="overlay"
-        style="border: 1px solid;position: absolute; top: 10px; left: 10px;"></canvas>
+<body style="position: relative; padding: 10px">
+<div style="display: inline-block; background: honeydew; border: 2px solid;position: absolute; top: 10px; right: 10px">
+    <canvas id="canvas" style="position:relative;"></canvas>
+    <canvas id="overlay" style="position:absolute; inset: 0"></canvas>
+</div>
 
 <canvas id="projection"
-        style="border: 1px solid;position: absolute; top: 10px; left: 420px;"></canvas>
+        style="border: 1px solid; position: absolute; left: 50%; transform: translate(-50%, 0);"></canvas>
 </body>
 <script type="module" src="index.js"></script>
 </html>
