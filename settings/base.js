@@ -107,7 +107,7 @@ export class Property {
         this.enumType = enumType;
         this.defaultValue = defaultValue;
 
-        this.exportable = false;
+        this.exportable = true;
         this.affects = [];
         this.breaks = [];
         this.name = "";
@@ -378,7 +378,7 @@ export class SettingsBase {
 
         const result = [];
         for (const [prop, value] of params.entries()) {
-            if (value !== prop.defaultValue) {
+            if (prop.exportable && value !== prop.defaultValue) {
                 if (prop.type === PropertyType.enum) {
                     result.push({key: prop.key, value: EnumUtils.findKey(prop.enumType, value)});
                 } else {

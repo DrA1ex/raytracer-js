@@ -100,6 +100,8 @@ function updateUrl(newSettings) {
     const params = newSettings.toQueryParams();
     const url = new URL(window.location.pathname, window.location.origin);
     for (const param of params) {
+        if (param.exportable) continue;
+
         url.searchParams.set(param.key, param.value ?? "");
     }
 

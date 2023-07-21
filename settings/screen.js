@@ -6,12 +6,14 @@ export class ScreenSettings extends SettingsBase {
         scale: Property.int("screen_scale")
             .setName("Scale")
             .setConstraints(1, 128)
-            .setBreaks(ComponentTypeEnum.screen, ComponentTypeEnum.miniMap),
+            .setBreaks(ComponentTypeEnum.screen, ComponentTypeEnum.miniMap)
+            .setExportable(false),
 
         resolution: Property.int("screen_resolution")
             .setName("Resolution")
             .setConstraints(480, 4096)
             .setBreaks(ComponentTypeEnum.screen)
+            .setExportable(false)
     }
 
     static ReadOnlyProperties = {
