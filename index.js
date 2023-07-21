@@ -40,6 +40,11 @@ let PixelData;
 let CameraAngle = 56;
 let CameraX = 138, CameraY = 42;
 
+const ControlKeys = {Left: 0b1, Up: 0b10, Right: 0b100, Down: 0b1000}
+let CameraControlKeys = 0;
+const CameraMotionVector = new Vector2();
+const CameraMaxSpeed = 60;
+
 let MouseLocked = false;
 let Changed = true;
 
@@ -135,10 +140,6 @@ function trace(originVector, radOrigAngle) {
         if (collision) {
             const relAngle = angle - radOrigAngle;
             intersections.push({
-                originX: collision.originX,
-                originY: collision.originY,
-                x: collision.x,
-                y: collision.y,
                 distance: Math.cos(relAngle) * collision.distance,
                 colorData: collision.colorData,
                 angle: relAngle
@@ -151,38 +152,39 @@ function trace(originVector, radOrigAngle) {
 
 function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
     const {mapSize} = Settings.map;
-    const {traceDistance} = Settings.rayCasting;
+    const traceDistance = Settings.rayCasting.traceDistance - lastDistance;
 
     const angleVector = Vector2.fromAngle(angle);
     const xStep = angleVector.scaled(1 / angleVector.x).length();
     const yStep = angleVector.scaled(1 / angleVector.y).length();
     const direction = new Vector2(Math.sign(angleVector.x), Math.sign(angleVector.y));
 
-    const position = new Vector2(Math.ceil(origin.x), Math.ceil(origin.y));
-    const currentPath = new Vector2();
+    const position = new Vector2(origin.x, origin.y);
+    const currentPath = new Vector2(
+        (direction.x > 0 ? Math.trunc(origin.x) - origin.x : origin.x - Math.trunc(origin.x)) * xStep,
+        (direction.y > 0 ? Math.trunc(origin.y) - origin.y : origin.y - Math.trunc(origin.y)) * yStep,
+    );
 
     let lastComponent = null;
-    while (Math.min(currentPath.x, currentPath.y) < lastDistance + traceDistance) {
+    let distance = 0;
+    while (Math.min(currentPath.x, currentPath.y) < traceDistance) {
         if (currentPath.x + xStep < currentPath.y + yStep) {
-            currentPath.x += xStep;
             position.x += direction.x;
+            currentPath.x += xStep;
+            distance = currentPath.x;
             lastComponent = "x";
         } else {
-            currentPath.y += yStep;
             position.y += direction.y;
+            currentPath.y += yStep;
+            distance = currentPath.y;
             lastComponent = "y";
         }
 
-        if (position.x < 0 || position.y < 0
-            || position.x >= mapSize
-            || position.y >= mapSize) break;
-
-        const pixelOffset = 4 * (position.x + position.y * mapSize);
+        const pixelOffset = 4 * (Math.floor(position.x) + Math.floor(position.y) * mapSize);
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
-        const distance = origin.distance(position);
-        const normal = getNormal(lastComponent, direction);
+        const normal = getNormal(lastComponent, angleVector);
         const reflectedAngle = angleVector.reflected(normal);
 
         let reflectionColor = null;
@@ -207,10 +209,6 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
         }
 
         return {
-            originX: origin.x,
-            originY: origin.y,
-            x: position.x,
-            y: position.y,
             distance,
             colorData
         };
@@ -287,36 +285,74 @@ function initCanvas(canvas, size, scale) {
     canvas.style.height = "var(--size)";
 }
 
+function updateCameraMotionVector() {
+    if (CameraControlKeys & ControlKeys.Up) {
+        CameraMotionVector.x = 1;
+    } else if (CameraControlKeys & ControlKeys.Down) {
+        CameraMotionVector.x = -1;
+    } else {
+        CameraMotionVector.x = 0;
+    }
+
+    if (CameraControlKeys & ControlKeys.Left) {
+        CameraMotionVector.y = 1;
+    } else if (CameraControlKeys & ControlKeys.Right) {
+        CameraMotionVector.y = -1;
+    } else {
+        CameraMotionVector.y = 0;
+    }
+}
+
 document.onkeydown = (e) => {
     switch (e.key) {
         case  "ArrowUp":
         case "w":
-            CameraX += Math.cos(Math.PI * CameraAngle / 180) * 5;
-            CameraY += Math.sin(Math.PI * CameraAngle / 180) * 5;
-            Changed = true;
+            CameraControlKeys |= ControlKeys.Up;
             break;
 
         case  "ArrowDown":
         case "s":
-            CameraX -= Math.cos(Math.PI * CameraAngle / 180) * 3;
-            CameraY -= Math.sin(Math.PI * CameraAngle / 180) * 3;
-            Changed = true;
+            CameraControlKeys |= ControlKeys.Down;
             break;
 
         case  "ArrowLeft":
         case "a":
-            CameraX += Math.cos(Math.PI * (CameraAngle - 90) / 180) * 5;
-            CameraY += Math.sin(Math.PI * (CameraAngle - 90) / 180) * 5;
-            Changed = true;
+            CameraControlKeys |= ControlKeys.Left;
             break;
 
         case  "ArrowRight":
         case "d":
-            CameraX += Math.cos(Math.PI * (CameraAngle + 90) / 180) * 5;
-            CameraY += Math.sin(Math.PI * (CameraAngle + 90) / 180) * 5;
-            Changed = true;
+            CameraControlKeys |= ControlKeys.Right;
             break;
     }
+
+    updateCameraMotionVector();
+}
+
+document.onkeyup = (e) => {
+    switch (e.key) {
+        case  "ArrowUp":
+        case "w":
+            CameraControlKeys &= ~ControlKeys.Up;
+            break;
+
+        case  "ArrowDown":
+        case "s":
+            CameraControlKeys &= ~ControlKeys.Down;
+            break;
+
+        case  "ArrowLeft":
+        case "a":
+            CameraControlKeys &= ~ControlKeys.Left;
+            break;
+
+        case  "ArrowRight":
+        case "d":
+            CameraControlKeys &= ~ControlKeys.Right;
+            break;
+    }
+
+    updateCameraMotionVector();
 }
 
 prCanvas.onmousemove = (e) => {
@@ -340,9 +376,16 @@ document.onpointerlockerror = (_) => {
     alert("Unable to lock pointer. Try again later");
 }
 
-function render() {
-    const radAngle = (Math.PI * CameraAngle / 180)
-    const position = new Vector2(Math.floor(CameraX), Math.floor(CameraY));
+let lastRenderTime = performance.now();
+
+function render(timestamp) {
+    const delta = Math.min(0.1, (timestamp - lastRenderTime) / 1000);
+    lastRenderTime = timestamp;
+
+    const radAngle = (Math.PI * CameraAngle / 180);
+    move(radAngle, delta);
+
+    const position = new Vector2(CameraX, CameraY);
 
     drawMiniMap(radAngle);
 
@@ -355,8 +398,27 @@ function render() {
         drawProjection(intersections);
     }
 
-    Changed = false;
+    Changed = CameraMotionVector.lengthSquared() > 0;
     requestAnimationFrame(render);
+}
+
+function move(radAngle, delta) {
+    const motionScalar = CameraMotionVector.normalize().lengthSquared();
+    if (!motionScalar) return;
+
+    const motionAngle = CameraMotionVector.angle(Vector2.fromAngle(radAngle));
+    const motionVector = Vector2.fromAngle(motionAngle)
+        .scaled(motionScalar * CameraMaxSpeed * delta);
+
+    const nextX = CameraX + motionVector.x;
+    const nextY = CameraY + motionVector.y;
+
+    const pixelIndex = Math.round(nextX) + Math.round(nextY) * Settings.map.mapSize;
+
+    if (PixelData[pixelIndex * 4 + 3] < 255) {
+        CameraX = nextX
+        CameraY = nextY;
+    }
 }
 
 function drawMiniMap(radAngle) {
@@ -368,8 +430,8 @@ function drawMiniMap(radAngle) {
     oCtx.fillStyle = 'red';
 
     const miniMapScale = resolution / Settings.map.resolution / Settings.map.scale;
-    const x = Math.floor(CameraX * miniMapScale),
-        y = Math.floor(CameraY * miniMapScale);
+    const x = CameraX * miniMapScale,
+        y = CameraY * miniMapScale;
     const coneDistance = Math.max(Settings.miniMap.coneMinDistance, Settings.miniMap.coneDistance * miniMapScale);
     const originSize = Math.max(Settings.miniMap.originMinSize, Settings.miniMap.originSize * miniMapScale);
 
@@ -411,6 +473,6 @@ function accumulateProjectionLight(intersections) {
     }
 }
 
-render();
+render(performance.now());
 
 loadingScreen.setVisibility(false);
