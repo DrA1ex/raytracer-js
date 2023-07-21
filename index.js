@@ -32,7 +32,9 @@ const prCanvas = document.getElementById("projection");
 const bgCtx = bgCanvas.getContext('2d');
 const oCtx = oCanvas.getContext('2d');
 const prCtx = prCanvas.getContext("2d", {willReadFrequently: true});
+
 bgCtx.imageSmoothingEnabled = false;
+prCtx.imageSmoothingEnabled = false;
 
 let PixelData;
 let CameraAngle = 56;
@@ -91,6 +93,7 @@ function reconfigure(newSettings, force = false) {
     if (force || diff.breaks.has(ComponentTypeEnum.screen)) {
         initCanvas(prCanvas, Settings.screen.resolution, Settings.screen.scale);
         prCtx.scale(Settings.screen.scale, Settings.screen.scale);
+        prCtx.lineWidth = Settings.screen.resolution * (Settings.screen.scale / Settings.camera.far);
     }
 
     Changed = true;
