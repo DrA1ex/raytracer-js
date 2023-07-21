@@ -2,27 +2,13 @@ import {Vector2} from "./utils/vector.js";
 import * as ColorUtils from "./utils/color.js";
 import {AppSettings} from "./settings/app.js";
 import * as CommonUtils from "./utils/common.js";
+import {Dialog, DialogPositionEnum, DialogTypeEnum} from "./ui/controls/dialog.js";
+import {SettingsController} from "./ui/controllers/settings.js";
+import {Button} from "./ui/controls/button.js";
+import {Control} from "./ui/controls/base.js";
+import {ComponentTypeEnum} from "./settings/enum.js";
 
-const Settings = AppSettings.fromQueryParams();
-
-const bgCanvas = document.getElementById("canvas");
-const oCanvas = document.getElementById("overlay");
-const prCanvas = document.getElementById("projection");
-
-initCanvas(bgCanvas, Settings.map.resolution, Settings.map.scale);
-initCanvas(oCanvas, Settings.miniMap.resolution, Settings.screen.scale);
-initCanvas(prCanvas, Settings.screen.resolution, Settings.screen.scale);
-
-bgCanvas.style.width = bgCanvas.style.height = Settings.miniMap.resolution + "px";
-
-const bgCtx = bgCanvas.getContext('2d');
-const oCtx = oCanvas.getContext('2d');
-const prCtx = prCanvas.getContext("2d", {willReadFrequently: true});
-
-oCtx.scale(Settings.screen.scale, Settings.screen.scale);
-prCtx.scale(Settings.screen.scale, Settings.screen.scale);
-
-bgCtx.imageSmoothingEnabled = false;
+let Settings = AppSettings.fromQueryParams();
 
 const mapImage = new Image();
 await new Promise((resolve, reject) => {
@@ -39,15 +25,92 @@ await new Promise((resolve, reject) => {
     };
 });
 
-bgCtx.drawImage(mapImage, 0, 0, Settings.map.mapSize, Settings.map.mapSize);
+const bgCanvas = document.getElementById("canvas");
+const oCanvas = document.getElementById("overlay");
+const prCanvas = document.getElementById("projection");
 
-const PixelData = bgCtx.getImageData(0, 0, Settings.map.mapSize, Settings.map.mapSize).data;
+const bgCtx = bgCanvas.getContext('2d');
+const oCtx = oCanvas.getContext('2d');
+const prCtx = prCanvas.getContext("2d", {willReadFrequently: true});
+bgCtx.imageSmoothingEnabled = false;
 
+let PixelData;
 let CameraAngle = 56;
 let CameraX = 138, CameraY = 42;
 
 let MouseLocked = false;
 let Changed = true;
+
+reconfigure(Settings, true);
+
+const loadingScreen = Control.byId("loading-screen");
+const settingsCtrl = new SettingsController(document.getElementById("settings-content"), this)
+settingsCtrl.subscribe(this, SettingsController.RECONFIGURE_EVENT, (sender, data) => reconfigure(data));
+
+const settingsDialog = Dialog.byId("settings", settingsCtrl.root);
+settingsDialog.type = DialogTypeEnum.popover;
+settingsDialog.position = DialogPositionEnum.right;
+
+settingsCtrl.configure(Settings);
+
+const bSettings = Button.byId("settings-button");
+bSettings.setOnClick(() => {
+    bSettings.setEnabled(false);
+    settingsDialog.show();
+
+    const rect = settingsDialog.dialogElement.getBoundingClientRect();
+    prCanvas.style.left = `calc(max(10px, min(${rect.left}px - 20px - var(--size), 50% - var(--size)/2)))`;
+})
+
+settingsDialog.setOnDismissed(() => {
+    prCanvas.style.left = "calc(50% - var(--size)/2)";
+    bSettings.setEnabled(true);
+})
+
+function reconfigure(newSettings, force = false) {
+    const diff = Settings.compare(newSettings);
+
+    Settings = newSettings;
+    updateUrl(Settings);
+
+    if (force || diff.breaks.has(ComponentTypeEnum.map)) {
+        initCanvas(bgCanvas, Settings.map.resolution, Settings.map.scale);
+
+        bgCtx.drawImage(mapImage, 0, 0, Settings.map.mapSize, Settings.map.mapSize);
+        bgCanvas.style.width = bgCanvas.style.height = Settings.miniMap.resolution + "px";
+
+        PixelData = bgCtx.getImageData(0, 0, Settings.map.mapSize, Settings.map.mapSize).data;
+    }
+
+    if (force || diff.breaks.has(ComponentTypeEnum.miniMap)) {
+        initCanvas(oCanvas, Settings.miniMap.resolution, Settings.screen.scale);
+        bgCanvas.style.width = bgCanvas.style.height = Settings.miniMap.resolution + "px";
+        oCtx.scale(Settings.screen.scale, Settings.screen.scale);
+    }
+
+    if (force || diff.breaks.has(ComponentTypeEnum.screen)) {
+        initCanvas(prCanvas, Settings.screen.resolution, Settings.screen.scale);
+        prCtx.scale(Settings.screen.scale, Settings.screen.scale);
+    }
+
+    Changed = true;
+}
+
+function updateUrl(newSettings) {
+    const params = newSettings.toQueryParams();
+    const url = new URL(window.location.pathname, window.location.origin);
+    for (const param of params) {
+        url.searchParams.set(param.key, param.value ?? "");
+    }
+
+    const urlSearchParams = new URLSearchParams(window.location.search);
+    const existingParams = Object.fromEntries(urlSearchParams.entries());
+    if (existingParams.state) {
+        url.searchParams.set("state", existingParams.state);
+    }
+
+    window.history.replaceState('', '', url);
+}
 
 function trace(originVector, radOrigAngle) {
     const intersections = [];
@@ -202,7 +265,7 @@ function drawProjection(intersections) {
             colorData[i] = 32 + 192 * Math.pow(colorData[i] / 255, 1 / gamma);
         }
 
-        prCtx.strokeStyle = ColorUtils.toHex(colorData, far / distance / 100);
+        prCtx.strokeStyle = ColorUtils.toHex(colorData, far / distance / 10);
         prCtx.beginPath();
         prCtx.moveTo(x, screenResolution / 2 - height);
         prCtx.lineTo(x, screenResolution / 2 + height);
@@ -214,8 +277,9 @@ function drawProjection(intersections) {
 function initCanvas(canvas, size, scale) {
     canvas.width = size * scale;
     canvas.height = size * scale;
-    canvas.style.width = size + "px";
-    canvas.style.height = size + "px";
+    canvas.style.setProperty("--size", size + "px");
+    canvas.style.width = "var(--size)";
+    canvas.style.height = "var(--size)";
 }
 
 document.onkeydown = (e) => {
@@ -250,17 +314,17 @@ document.onkeydown = (e) => {
     }
 }
 
-document.onmousemove = (e) => {
+prCanvas.onmousemove = (e) => {
     if (!MouseLocked) return;
 
     CameraAngle += e.movementX / 2;
     Changed = true;
 }
 
-document.onmousedown = async () => {
+prCanvas.onmousedown = async () => {
     if (MouseLocked) return
 
-    await document.body.requestPointerLock();
+    await prCanvas.requestPointerLock();
 }
 
 document.onpointerlockchange = (_) => {
@@ -298,7 +362,7 @@ function drawMiniMap(radAngle) {
     oCtx.strokeStyle = 'pink';
     oCtx.fillStyle = 'red';
 
-    const miniMapScale = resolution / Settings.map.resolution * Settings.map.scale;
+    const miniMapScale = resolution / Settings.map.resolution / Settings.map.scale;
     const x = Math.floor(CameraX * miniMapScale),
         y = Math.floor(CameraY * miniMapScale);
     const coneDistance = Math.max(Settings.miniMap.coneMinDistance, Settings.miniMap.coneDistance * miniMapScale);
@@ -343,3 +407,5 @@ function accumulateProjectionLight(intersections) {
 }
 
 render();
+
+loadingScreen.setVisibility(false);

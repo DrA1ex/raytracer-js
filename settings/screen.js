@@ -1,14 +1,17 @@
 import {Property, ReadOnlyProperty, SettingsBase} from "./base.js";
+import {ComponentTypeEnum} from "./enum.js";
 
 export class ScreenSettings extends SettingsBase {
     static Properties = {
         scale: Property.int("screen_scale")
             .setName("Scale")
-            .setConstraints(1, 128),
+            .setConstraints(1, 128)
+            .setBreaks(ComponentTypeEnum.screen, ComponentTypeEnum.miniMap),
 
         resolution: Property.int("screen_resolution")
             .setName("Resolution")
             .setConstraints(480, 4096)
+            .setBreaks(ComponentTypeEnum.screen)
     }
 
     static ReadOnlyProperties = {

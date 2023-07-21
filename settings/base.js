@@ -1,6 +1,5 @@
 import * as EnumUtils from "../utils/enum.js";
 
-
 /**
  * @enum{string}
  */
@@ -10,17 +9,6 @@ export const PropertyType = {
     float: "float",
     bool: "bool",
     enum: "enum",
-}
-
-/**
- * @enum{string}
- */
-export const ComponentType = {
-    backend: "backend",
-    renderer: "renderer",
-    dfri: "dfri",
-    debug: "debug",
-    particles: "particles"
 }
 
 export class PropertyParser {
@@ -208,7 +196,7 @@ export class Property {
     }
 
     /**
-     * @param {ComponentType} affects
+     * @param affects
      * @return {Property<T>}
      */
     setAffects(...affects) {
@@ -217,7 +205,7 @@ export class Property {
     }
 
     /**
-     * @param {ComponentType} breaks
+     * @param breaks
      * @return {Property<T>}
      */
     setBreaks(...breaks) {
@@ -545,8 +533,10 @@ export class AppSettingsBase {
     }
 
     /**
+     * @template C
+     *
      * @param {SettingsGroup} newSettings
-     * @returns {{breaks: Set<ComponentType>, affects: Set<ComponentType>}}
+     * @returns {{breaks: Set<C>, affects: Set<C>}}
      */
     compare(newSettings) {
         const affects = new Set();
