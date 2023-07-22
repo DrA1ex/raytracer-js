@@ -7,7 +7,7 @@ import {Checkbox} from "../controls/checkbox.js";
 import {AppSettings} from "../../settings/app.js";
 import {Label} from "../controls/label.js";
 
-const view = await fetch(new URL("./views/settings.html", import.meta.url)).then(d => d.text());
+import view from "./views/settings.js";
 
 export class SettingsController extends ControllerBase {
     static RECONFIGURE_EVENT = "start_recording";

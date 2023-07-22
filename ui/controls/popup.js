@@ -1,6 +1,6 @@
 import {Control, View} from "./base.js";
 
-const view = await fetch(new URL("./views/popup.html", import.meta.url)).then(d => d.text());
+import view from "./views/popup.js";
 
 /**
  * @enum{number}

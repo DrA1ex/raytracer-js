@@ -12,7 +12,7 @@ let Settings = AppSettings.fromQueryParams();
 
 const mapImage = new Image();
 await new Promise((resolve, reject) => {
-    mapImage.src = "./assets/map.svg";
+    mapImage.src = new URL("/assets/map.svg", import.meta.url);
     mapImage.onload = () => {
         mapImage.onload = null;
         mapImage.onerror = null;
@@ -304,6 +304,8 @@ function updateCameraMotionVector() {
 }
 
 document.onkeydown = (e) => {
+    if (e.target.nodeName.toLowerCase() === "input") return;
+
     switch (e.key) {
         case  "ArrowUp":
         case "w":
@@ -330,6 +332,8 @@ document.onkeydown = (e) => {
 }
 
 document.onkeyup = (e) => {
+    if (e.target.nodeName.toLowerCase() === "input") return;
+
     switch (e.key) {
         case  "ArrowUp":
         case "w":
