@@ -1,7 +1,7 @@
 # Raytracer-JS
 Simple 2D raytracer/raycaster implementation.
 
-## Demo
+## [Demo](https://dra1ex.github.io/raytracer-js/)
 
 Use **WASD** to move and **Cursor** to control camera
 
