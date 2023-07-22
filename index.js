@@ -180,15 +180,20 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
             lastComponent = "y";
         }
 
+        if (position.x < 0 || position.y < 0
+            || position.x >= mapSize
+            || position.y >= mapSize) break;
+
         const pixelOffset = 4 * (Math.floor(position.x) + Math.floor(position.y) * mapSize);
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
         const normal = getNormal(lastComponent, angleVector);
-        const reflectedAngle = angleVector.reflected(normal);
 
+        let reflectedAngle;
         let reflectionColor = null;
         if (reflectionCount > 0) {
+            reflectedAngle = angleVector.reflected(normal);
             reflectionColor = getRayReflection(position.delta(normal), reflectedAngle, light, reflectionCount, distance);
         }
 
@@ -416,6 +421,10 @@ function move(radAngle, delta) {
 
     const nextX = CameraX + motionVector.x;
     const nextY = CameraY + motionVector.y;
+
+    if (nextX < 0 || nextY < 0
+        || nextX >= Settings.map.mapSize
+        || nextY >= Settings.map.mapSize) return;
 
     const pixelIndex = Math.round(nextX) + Math.round(nextY) * Settings.map.mapSize;
 

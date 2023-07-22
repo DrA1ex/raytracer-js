@@ -13,7 +13,7 @@
     <path d="M 70.251 154.99 L 112.041 238.571 L 28.46 238.571 L 70.251 154.99 Z" style="fill: rgb(35, 241, 179);" bx:shape="triangle 28.46 154.99 83.581 83.581 0.5 0 1@2571a1cc"></path>
     <rect x="210.06" y="290" width="49.694" height="10" style="paint-order: fill; fill: rgb(206, 206, 206);"></rect>
     <rect x="149.754" y="340" width="101" height="10" style="paint-order: fill; fill: rgb(241, 131, 47);"></rect>
-    <rect x="0" y="0" width="400" height="400" style="fill:none; stroke: slategrey; stroke-width: 2px;"></rect>
     <rect x="230" y="315" width="10" height="10" style="fill: rgb(255, 47, 47);"></rect>
     <rect x="160" y="315" width="10" height="10" style="fill: rgb(47, 47, 255);"></rect>
+    <rect x="0" y="0" width="400" height="400" style="fill:none; stroke: slategrey; stroke-width: 2px;"></rect>
 </svg>
