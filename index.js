@@ -12,6 +12,7 @@ let Settings = AppSettings.fromQueryParams();
 
 const mapImage = new Image();
 await new Promise((resolve, reject) => {
+    // noinspection JSValidateTypes
     mapImage.src = new URL("/assets/map.svg", import.meta.url);
     mapImage.onload = () => {
         mapImage.onload = null;
@@ -151,10 +152,41 @@ function trace(originVector, radOrigAngle) {
 }
 
 function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
-    const {mapSize} = Settings.map;
     const traceDistance = Settings.rayCasting.traceDistance - lastDistance;
-
     const angleVector = Vector2.fromAngle(angle);
+
+    const result = traceRay(origin, angleVector, traceDistance);
+    if (!result) return null;
+
+    const {pixelOffset, position, distance, normal} = result;
+
+    const colorData = new Array(3);
+    const kDiffuse = Math.max(0, angleVector.dot(normal));
+    const kSpecular = Math.pow(Math.max(0, angleVector.dot(normal.perpendicular())), 4);
+    for (let i = 0; i < colorData.length; i++) {
+        const color = PixelData[pixelOffset + i] * (kDiffuse + kSpecular);
+        colorData[i] = Math.min(255, Math.floor(color));
+    }
+
+    ColorUtils.mixColorMultiply(colorData, light);
+    ColorUtils.shadeColor(light, -Settings.reflection.energyLoss);
+
+    if (reflectionCount > 0) {
+        const reflectedAngle = angleVector.reflected(normal);
+        const reflectionColor = getRayReflection(position.delta(normal), reflectedAngle, light, reflectionCount, distance);
+
+        const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
+        ColorUtils.mixColorAdd(colorData, reflectionColor, kReflection);
+    }
+
+    return {
+        distance,
+        colorData
+    };
+}
+
+function traceRay(origin, angleVector, traceDistance) {
+    const {mapSize} = Settings.map;
     const xStep = angleVector.scaled(1 / angleVector.x).length();
     const yStep = angleVector.scaled(1 / angleVector.y).length();
     const direction = new Vector2(Math.sign(angleVector.x), Math.sign(angleVector.y));
@@ -188,35 +220,12 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
-        const normal = getNormal(lastComponent, angleVector);
-
-        let reflectedAngle;
-        let reflectionColor = null;
-        if (reflectionCount > 0) {
-            reflectedAngle = angleVector.reflected(normal);
-            reflectionColor = getRayReflection(position.delta(normal), reflectedAngle, light, reflectionCount, distance);
-        }
-
-        const colorData = new Array(3);
-        const kDiffuse = Math.max(0, angleVector.dot(normal));
-        const kSpecular = Math.pow(Math.max(0, angleVector.dot(normal.perpendicular())), 4);
-        for (let i = 0; i < colorData.length; i++) {
-            const color = PixelData[pixelOffset + i] * (kDiffuse + kSpecular);
-            colorData[i] = Math.min(255, Math.floor(color));
-        }
-
-        ColorUtils.mixColorMultiply(colorData, light);
-        ColorUtils.shadeColor(light, -Settings.reflection.energyLoss);
-
-        if (reflectionColor) {
-            const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
-            ColorUtils.mixColorAdd(colorData, reflectionColor, kReflection);
-        }
-
         return {
+            pixelOffset,
+            position,
             distance,
-            colorData
-        };
+            normal: getNormal(lastComponent, angleVector)
+        }
     }
 
     return null;
