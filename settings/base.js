@@ -301,6 +301,19 @@ export class ReadOnlyProperty extends Property {
     }
 }
 
+export class DependantProperties {
+    properties;
+    options;
+
+    /**
+     * @param {Array<Property|ReadOnlyProperty>} props
+     * @param {Object} [options=null]
+     */
+    constructor(props, options = null) {
+        this.properties = props;
+        this.options = options ?? {};
+    }
+}
 
 export class QueryParameterParser {
     static parse(type, defaults) {
@@ -338,7 +351,7 @@ export class SettingsBase {
     /**
      * @abstract
      *
-     * @type {Map<Property, Array<Property|ReadOnlyProperty>>}
+     * @type {Map<Property, DependantProperties>}
      */
     static PropertiesDependencies = new Map();
 
@@ -369,8 +382,8 @@ export class SettingsBase {
 
         for (const [prop, deps] of this.constructor.PropertiesDependencies.entries()) {
             const value = params.get(prop);
-            if (!value) {
-                for (const depProp of deps) {
+            if (deps.options.invert === true ? value : !value) {
+                for (const depProp of deps.properties) {
                     params.delete(depProp);
                 }
             }

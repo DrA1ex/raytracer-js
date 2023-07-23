@@ -1,4 +1,4 @@
-import {Property, ReadOnlyProperty, SettingsBase} from "./base.js";
+import {DependantProperties, Property, ReadOnlyProperty, SettingsBase} from "./base.js";
 import {ComponentTypeEnum} from "./enum.js";
 
 export class MapSettings extends SettingsBase {
@@ -19,8 +19,8 @@ export class MapSettings extends SettingsBase {
     }
 
     static PropertiesDependencies = new Map([
-        [this.Properties.resolution, [this.ReadOnlyProperties.mapSize]],
-        [this.Properties.scale, [this.ReadOnlyProperties.mapSize]],
+        [this.Properties.resolution, new DependantProperties([this.ReadOnlyProperties.mapSize])],
+        [this.Properties.scale, new DependantProperties([this.ReadOnlyProperties.mapSize])],
     ])
 
     get mapSize() {return this.scale * this.resolution;}

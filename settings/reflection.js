@@ -3,9 +3,6 @@ import {Property, SettingsBase} from "./base.js";
 
 export class ReflectionSettings extends SettingsBase {
     static Properties = {
-        debug: Property.bool("debug", false)
-            .setName("Debug"),
-
         count: Property.int("reflection_count", 1)
             .setName("Count").setDescription("Maximum reflections for one ray beam")
             .setConstraints(0, 100),
@@ -23,7 +20,6 @@ export class ReflectionSettings extends SettingsBase {
             .setConstraints(0.0, 1.0),
     }
 
-    get debug() {return this.config.debug;}
     get count() {return this.config.count;}
     get subStepCount() {return this.config.subStepCount;}
     get spread() {return this.config.spread;}

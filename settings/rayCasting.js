@@ -1,4 +1,4 @@
-import {Property, ReadOnlyProperty, SettingsBase} from "./base.js";
+import {DependantProperties, Property, ReadOnlyProperty, SettingsBase} from "./base.js";
 
 export class RayCastingSettings extends SettingsBase {
     static Properties = {
@@ -16,10 +16,26 @@ export class RayCastingSettings extends SettingsBase {
         traceDistance: Property.int("trace_distance", 10000)
             .setName("Tracing distance").setDescription("Max ray distance")
             .setConstraints(10, 1e9),
+
+        debug: Property.bool("debug", false)
+            .setName("Debug"),
     }
 
+    static PropertiesDependencies = new Map([
+        [this.Properties.debug, new DependantProperties([this.Properties.accumulateLight], {invert: true})],
+    ])
+
+    get debug() {return this.config.debug;}
     get accumulateLight() {return this.config.accumulateLight;}
     get emissionRandomness() {return this.config.emissionRandomness;}
     get traceSteps() {return this.config.traceSteps;}
     get traceDistance() {return this.config.traceDistance;}
+
+    constructor(values) {
+        super(values);
+
+        if (this.debug === true) {
+            this.config.accumulateLight = false
+        }
+    }
 }

@@ -73,12 +73,12 @@ export class SettingsController extends ControllerBase {
             }
 
             const deps = config[groupKey].constructor.PropertiesDependencies.get(prop);
-            if (deps && deps.length > 0) {
-                for (const depProp of deps) {
+            if (deps && deps.properties.length > 0) {
+                for (const depProp of deps.properties) {
                     this.onParameterChanged(depProp, true);
 
                     if (!(depProp instanceof ReadOnlyProperty)) {
-                        this.propData.get(depProp).control.setEnabled(!!value);
+                        this.propData.get(depProp).control.setEnabled(deps.options.invert ? !value : !!value);
                     }
                 }
             }

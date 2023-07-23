@@ -284,7 +284,7 @@ function getRayReflection(origin, angle, light, reflectionCount, distance) {
 
         if (!reflection) continue;
 
-        if (Settings.reflection.debug) {
+        if (Settings.rayCasting.debug) {
             DebugReflectionRays.push({
                 origin,
                 angle: rayAngle,
@@ -512,7 +512,7 @@ function render(timestamp) {
         accumulateProjectionLight(intersections);
     } else if (Changed) {
         prCtx.clearRect(0, 0, Settings.screen.resolution, Settings.screen.resolution);
-        if (!Settings.reflection.debug) {
+        if (!Settings.rayCasting.debug) {
             drawProjection(intersections);
         } else {
             drawDebugProjection(intersections);

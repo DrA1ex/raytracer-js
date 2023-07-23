@@ -1,4 +1,4 @@
-import {Property, ReadOnlyProperty, SettingsBase} from "./base.js";
+import {DependantProperties, Property, ReadOnlyProperty, SettingsBase} from "./base.js";
 import {ComponentTypeEnum} from "./enum.js";
 
 export class ScreenSettings extends SettingsBase {
@@ -21,8 +21,8 @@ export class ScreenSettings extends SettingsBase {
     }
 
     static PropertiesDependencies = new Map([
-        [this.Properties.resolution, [this.ReadOnlyProperties.screenSize]],
-        [this.Properties.scale, [this.ReadOnlyProperties.screenSize]],
+        [this.Properties.resolution, new DependantProperties([this.ReadOnlyProperties.screenSize])],
+        [this.Properties.scale, new DependantProperties([this.ReadOnlyProperties.screenSize])],
     ])
 
     get screenSize() {return this.scale * this.resolution;}
