@@ -102,7 +102,6 @@ function reconfigure(newSettings, force = false) {
     if (force || diff.breaks.has(ComponentTypeEnum.screen)) {
         initCanvas(prCanvas, Settings.screen.resolution, Settings.screen.scale);
         prCtx.scale(Settings.screen.scale, Settings.screen.scale);
-        prCtx.lineWidth = 1.5;
     }
 
     Changed = true;
@@ -135,7 +134,10 @@ function trace(originVector, radOrigAngle) {
     const dt = (Settings.screen.resolution / 2) / Math.tan(fov / 2);
     const step = Settings.screen.resolution / traceSteps;
 
-    for (let i = -traceSteps / 2; i <= traceSteps / 2; i++) {
+    const from = -Math.floor(traceSteps / 2);
+    const to = Math.floor(traceSteps / 2);
+
+    for (let i = from; i <= to; i++) {
         const emissionRandom = Settings.rayCasting.accumulateLight
             ? Math.random() * Settings.rayCasting.emissionRandomness : 0;
         const currentStep = (i + emissionRandom) * step;
@@ -145,7 +147,7 @@ function trace(originVector, radOrigAngle) {
         if (collision) {
             const relAngle = angle - radOrigAngle;
             intersections.push({
-                distance: collision.distance,
+                distance: Math.cos(relAngle) * collision.distance,
                 colorData: collision.colorData,
                 angle: relAngle
             });
@@ -155,6 +157,16 @@ function trace(originVector, radOrigAngle) {
     return intersections;
 }
 
+/**
+ *
+ * @param {Vector2} origin
+ * @param {number} angle
+ * @param {[number,number,number]} light
+ * @param {number} reflectionCount
+ * @param {number} [lastDistance=0]
+ *
+ * @returns {{distance: number, colorData: [number,number,number]}|null}
+ */
 function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
     const traceDistance = Settings.rayCasting.traceDistance - lastDistance;
     const angleVector = Vector2.fromAngle(angle);
@@ -177,7 +189,11 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
 
     if (reflectionCount > 0) {
         const reflectedAngle = angleVector.reflected(normal);
-        const reflectionColor = getRayReflection(position.delta(normal), reflectedAngle, light, reflectionCount, distance);
+        const reflectionColor = getRayReflection(
+            position.delta(normal),
+            Math.atan2(reflectedAngle.y, reflectedAngle.x),
+            light, reflectionCount, distance
+        );
 
         if (reflectionColor) {
             const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
@@ -191,13 +207,21 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
     };
 }
 
+/**
+ *
+ * @param {Vector2} origin
+ * @param {Vector2} angleVector
+ * @param {number} traceDistance
+ *
+ * @returns {{normal: Vector2, distance: number, position: Vector2, pixelOffset: number}|null}
+ */
 function traceRay(origin, angleVector, traceDistance) {
     const {mapSize} = Settings.map;
     const xStep = angleVector.scaled(1 / angleVector.x).length();
     const yStep = angleVector.scaled(1 / angleVector.y).length();
     const direction = new Vector2(Math.sign(angleVector.x), Math.sign(angleVector.y));
 
-    const position = new Vector2(origin.x, origin.y);
+    const position = new Vector2(Math.floor(origin.x), Math.floor(origin.y));
     const currentPath = new Vector2(
         (direction.x > 0 ? Math.trunc(origin.x) - origin.x : origin.x - Math.trunc(origin.x)) * xStep,
         (direction.y > 0 ? Math.trunc(origin.y) - origin.y : origin.y - Math.trunc(origin.y)) * yStep,
@@ -222,7 +246,7 @@ function traceRay(origin, angleVector, traceDistance) {
             || position.x >= mapSize
             || position.y >= mapSize) break;
 
-        const pixelOffset = 4 * (Math.floor(position.x) + Math.floor(position.y) * mapSize);
+        const pixelOffset = 4 * (position.x + position.y * mapSize);
         const alpha = PixelData[pixelOffset + 3];
         if (alpha < 255) continue;
 
@@ -237,17 +261,25 @@ function traceRay(origin, angleVector, traceDistance) {
     return null;
 }
 
+/**
+ * @param {Vector2} origin
+ * @param {Number} angle
+ * @param {[number,number,number]} light
+ * @param {number} reflectionCount
+ * @param {number} distance
+ *
+ * @returns {[number,number,number]|null}
+ */
 function getRayReflection(origin, angle, light, reflectionCount, distance) {
     const {subStepCount} = Settings.reflection;
     const spread = CommonUtils.degToRad(Settings.reflection.spread);
 
-    const rAngle = Math.atan2(angle.y, angle.x);
     const originalLight = light.concat();
 
     let reflectionColor = null;
     for (let i = 0; i < subStepCount; i++) {
         const lightCopy = originalLight.concat();
-        const rayAngle = rAngle + spread * (Math.random() - 0.5);
+        const rayAngle = angle + spread * (Math.random() - 0.5);
         const reflection = emitLight(origin, rayAngle, lightCopy, reflectionCount - 1, distance);
 
         if (!reflection) continue;
@@ -255,7 +287,7 @@ function getRayReflection(origin, angle, light, reflectionCount, distance) {
         if (Settings.reflection.debug) {
             DebugReflectionRays.push({
                 origin,
-                angle: Math.atan2(angle.y, angle.x),
+                angle: rayAngle,
                 colorData: reflection.colorData,
                 distance: reflection.distance,
                 totalDistance: reflection.distance + distance,
@@ -287,9 +319,11 @@ function drawProjection(intersections) {
     const screenResolution = Settings.screen.resolution;
     const fov = CommonUtils.degToRad(Settings.camera.fov);
     const far = Settings.camera.far;
-    const gamma = Settings.camera.gamma;
 
+    const gamma = Settings.camera.gamma;
     const dt = (screenResolution / 2) / Math.tan(fov / 2);
+
+    prCtx.lineWidth = 1.5;
 
     for (const {angle, distance, colorData} of intersections) {
         const x = screenResolution / 2 + screenResolution * (angle / fov);
@@ -320,7 +354,8 @@ function drawDebugProjection(intersections) {
     const mapScale = screenResolution / Settings.map.mapSize;
 
     for (const {angle, distance, colorData} of intersections) {
-        const pos = Vector2.fromAngle(radAngle + angle).scale(distance);
+        const originalDistance = distance / Math.cos(angle);
+        const pos = Vector2.fromAngle(radAngle + angle).scale(originalDistance);
         const x = (CameraX + pos.x) * mapScale;
         const y = (CameraY + pos.y) * mapScale;
 
