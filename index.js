@@ -7,6 +7,7 @@ import {SettingsController} from "./ui/controllers/settings.js";
 import {Button} from "./ui/controls/button.js";
 import {Control} from "./ui/controls/base.js";
 import {ComponentTypeEnum} from "./settings/enum.js";
+import {gammaCorrection} from "./utils/color.js";
 
 let Settings = AppSettings.fromQueryParams();
 
@@ -49,6 +50,7 @@ const CameraMaxSpeed = 60;
 let MouseLocked = false;
 let Changed = true;
 let CurrentIteration = 1;
+let DebugReflectionRays = [];
 
 reconfigure(Settings, true);
 
@@ -125,6 +127,7 @@ function updateUrl(newSettings) {
 }
 
 function trace(originVector, radOrigAngle) {
+    DebugReflectionRays = [];
     const intersections = [];
     const fov = CommonUtils.degToRad(Settings.camera.fov);
     const {traceSteps} = Settings.rayCasting;
@@ -142,7 +145,7 @@ function trace(originVector, radOrigAngle) {
         if (collision) {
             const relAngle = angle - radOrigAngle;
             intersections.push({
-                distance: Math.cos(relAngle) * collision.distance,
+                distance: collision.distance,
                 colorData: collision.colorData,
                 angle: relAngle
             });
@@ -249,6 +252,17 @@ function getRayReflection(origin, angle, light, reflectionCount, distance) {
 
         if (!reflection) continue;
 
+        if (Settings.reflection.debug) {
+            DebugReflectionRays.push({
+                origin,
+                angle: Math.atan2(angle.y, angle.x),
+                colorData: reflection.colorData,
+                distance: reflection.distance,
+                totalDistance: reflection.distance + distance,
+                level: reflectionCount
+            });
+        }
+
         if (!reflectionColor) {
             reflectionColor = reflection.colorData;
         } else {
@@ -281,14 +295,60 @@ function drawProjection(intersections) {
         const x = screenResolution / 2 + screenResolution * (angle / fov);
         const height = 12 * dt / distance;
 
-        for (let i = 0; i < colorData.length; i++) {
-            colorData[i] = 32 + 192 * Math.pow(colorData[i] / 255, 1 / gamma);
-        }
+        ColorUtils.gammaCorrection(colorData, gamma);
 
         prCtx.strokeStyle = ColorUtils.toHex(colorData, far / distance / 10);
         prCtx.beginPath();
         prCtx.moveTo(x, screenResolution / 2 - height);
         prCtx.lineTo(x, screenResolution / 2 + height);
+        prCtx.stroke();
+    }
+}
+
+function drawDebugProjection(intersections) {
+    const screenResolution = Settings.screen.resolution;
+    const far = Settings.camera.far;
+    const gamma = Settings.camera.gamma;
+
+    const radAngle = CommonUtils.degToRad(CameraAngle);
+
+    prCtx.lineWidth = 0.5;
+    prCtx.drawImage(mapImage, 0, 0, screenResolution, screenResolution);
+    prCtx.fillStyle = "rgba(0,0,0,0.5)";
+    prCtx.fillRect(0, 0, screenResolution, screenResolution);
+
+    const mapScale = screenResolution / Settings.map.mapSize;
+
+    for (const {angle, distance, colorData} of intersections) {
+        const pos = Vector2.fromAngle(radAngle + angle).scale(distance);
+        const x = (CameraX + pos.x) * mapScale;
+        const y = (CameraY + pos.y) * mapScale;
+
+        ColorUtils.gammaCorrection(colorData, gamma);
+
+        prCtx.fillStyle = prCtx.strokeStyle = ColorUtils.toHex(colorData, far / distance / 10);
+        prCtx.fillRect(x - 2, y - 2, 4, 4);
+
+        prCtx.beginPath();
+        prCtx.moveTo(CameraX * mapScale, CameraY * mapScale);
+        prCtx.lineTo(x, y);
+        prCtx.stroke();
+    }
+
+    for (const {origin, angle, colorData, distance, totalDistance, level} of DebugReflectionRays) {
+        const depth = 4 / (1 + Settings.reflection.count - level) - 1;
+        const pos = Vector2.fromAngle(angle).scale(distance);
+        const x = (origin.x + pos.x) * mapScale;
+        const y = (origin.y + pos.y) * mapScale;
+
+        ColorUtils.gammaCorrection(colorData, gamma);
+
+        prCtx.fillStyle = prCtx.strokeStyle = ColorUtils.toHex(colorData, far / totalDistance / 10);
+        prCtx.fillRect(x - depth / 2, y - depth / 2, depth, depth);
+
+        prCtx.beginPath();
+        prCtx.moveTo(origin.x * mapScale, origin.y * mapScale);
+        prCtx.lineTo(x, y);
         prCtx.stroke();
     }
 }
@@ -403,20 +463,25 @@ function render(timestamp) {
     const delta = Math.min(0.1, (timestamp - lastRenderTime) / 1000);
     lastRenderTime = timestamp;
 
-    const radAngle = (Math.PI * CameraAngle / 180);
+    const radAngle = CommonUtils.degToRad(CameraAngle);
     move(radAngle, delta);
 
     const position = new Vector2(CameraX, CameraY);
 
     drawMiniMap(radAngle);
 
+    const shouldBuildProjection = Settings.rayCasting.accumulateLight || Changed;
+    const intersections = shouldBuildProjection && trace(position, radAngle);
+
     if (Settings.rayCasting.accumulateLight) {
-        const intersections = trace(position, radAngle);
         accumulateProjectionLight(intersections);
     } else if (Changed) {
-        const intersections = trace(position, radAngle);
         prCtx.clearRect(0, 0, Settings.screen.resolution, Settings.screen.resolution);
-        drawProjection(intersections);
+        if (!Settings.reflection.debug) {
+            drawProjection(intersections);
+        } else {
+            drawDebugProjection(intersections);
+        }
     }
 
     Changed = CameraMotionVector.lengthSquared() > 0;

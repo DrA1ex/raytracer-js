@@ -47,3 +47,9 @@ export function toHex(rgb, alpha = 1) {
 
     return `#${_hex(rgb[0])}${_hex(rgb[1])}${_hex(rgb[2])}${_hex(alpha * 255)}`;
 }
+
+export function gammaCorrection(rgb, gamma) {
+    for (let i = 0; i < rgb.length; i++) {
+        rgb[i] = 32 + 192 * Math.pow(rgb[i] / 255, 1 / gamma);
+    }
+}
