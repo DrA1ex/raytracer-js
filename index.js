@@ -48,6 +48,7 @@ const CameraMaxSpeed = 60;
 
 let MouseLocked = false;
 let Changed = true;
+let CurrentIteration = 1;
 
 reconfigure(Settings, true);
 
@@ -479,6 +480,7 @@ function accumulateProjectionLight(intersections) {
 
     if (Changed) {
         prCtx.clearRect(0, 0, Settings.screen.resolution, Settings.screen.resolution);
+        CurrentIteration = 1;
     } else {
         prevStateData = prCtx.getImageData(0, 0, Settings.screen.screenSize, Settings.screen.screenSize).data;
     }
@@ -489,12 +491,15 @@ function accumulateProjectionLight(intersections) {
     const currentStateData = currentState.data;
 
     if (!Changed) {
+        const factor = 1 / CurrentIteration;
         for (let i = 0; i < currentStateData.length; i += 4) {
-            ColorUtils.mixColorLinearOffset(currentStateData, i, prevStateData, i, currentStateData, i, 0.5);
+            ColorUtils.mixColorLinearOffset(currentStateData, i, prevStateData, i, currentStateData, i, factor);
         }
 
         prCtx.putImageData(currentState, 0, 0);
     }
+
+    CurrentIteration++;
 }
 
 render(performance.now());
