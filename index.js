@@ -99,7 +99,7 @@ function reconfigure(newSettings, force = false) {
     if (force || diff.breaks.has(ComponentTypeEnum.screen)) {
         initCanvas(prCanvas, Settings.screen.resolution, Settings.screen.scale);
         prCtx.scale(Settings.screen.scale, Settings.screen.scale);
-        prCtx.lineWidth = Settings.screen.resolution * (Settings.screen.scale / Settings.camera.far);
+        prCtx.lineWidth = 1.5;
     }
 
     Changed = true;
@@ -175,8 +175,10 @@ function emitLight(origin, angle, light, reflectionCount, lastDistance = 0) {
         const reflectedAngle = angleVector.reflected(normal);
         const reflectionColor = getRayReflection(position.delta(normal), reflectedAngle, light, reflectionCount, distance);
 
-        const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
-        ColorUtils.mixColorAdd(colorData, reflectionColor, kReflection);
+        if (reflectionColor) {
+            const kReflection = Math.abs(reflectedAngle.dot(normal.perpendicular()));
+            ColorUtils.mixColorAdd(colorData, reflectionColor, kReflection);
+        }
     }
 
     return {
