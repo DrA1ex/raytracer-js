@@ -1,7 +1,6 @@
 import * as CommonUtils from "./utils/common.js";
 import * as ColorUtils from "./utils/color.js";
 import {Vector2} from "./utils/vector.js";
-import {colorMultiply} from "./utils/color.js";
 
 export class RayTracer {
     settings;
@@ -59,41 +58,61 @@ export class RayTracer {
      * @param {Ray} ray
      */
     #traceRay(ray) {
-        if (!ray.trace()) {
-            return null;
-        }
+        if (!ray.trace()) return null;
 
-        const {direction, energy, result: {colorData, normal, distance}} = ray;
+        const {
+            origin, direction, energy, totalDistance, bounces,
+            result: {colorData, normal, distance}
+        } = ray;
 
-        if (this.settings.rayCasting.debug) {
-            this.debug.reflectionRays.push({
-                origin: ray.origin,
-                angle: Math.atan2(direction.y, direction.x),
-                colorData: colorData,
-                distance: distance,
-                totalDistance: ray.totalDistance,
-                level: ray.bounces
-            });
-        }
+        const debugData = {};
+        if (this.settings.rayCasting.debugColor) debugData.originalColor = colorData.slice(0, 3);
 
         const kDiffuse = Math.max(0, direction.dot(normal));
-        const kSpecular = Math.pow(Math.max(0, direction.dot(normal.perpendicular())), 4);
+        const kSpecular = Math.pow(Math.max(0, direction.dot(normal.perpendicular())), this.settings.reflection.shininess);
         for (let i = 0; i < colorData.length; i++) {
             const color = colorData[i] * (kDiffuse + kSpecular);
             colorData[i] = Math.min(255, Math.floor(color));
         }
 
+        if (this.settings.rayCasting.debugColor) debugData.computedColor = colorData.slice(0, 3);
+
         const reflectionData = this.#traceRay(ray);
         if (reflectionData) {
-            const kReflection = Math.abs(ray.nextDirection.dot(normal.perpendicular()));
+            const kReflection = Math.pow(Math.abs(ray.nextDirection.dot(normal.perpendicular())), this.settings.reflection.shininess);
             ColorUtils.mixColorAdd(colorData, reflectionData.colorData, kReflection);
             ColorUtils.colorMultiply(colorData, energy);
+
+            if (this.settings.rayCasting.debug) debugData.kReflection = kReflection;
         }
 
-        return {
-            distance,
-            colorData
-        };
+
+        if (this.settings.rayCasting.debug) {
+            this.debug.reflectionRays.push({
+                origin: origin,
+                angle: direction,
+                colorData: colorData,
+                distance: distance,
+                totalDistance: totalDistance,
+                level: bounces
+            });
+
+            if (this.settings.rayCasting.debugColor && reflectionData) {
+                console.log(
+                    `#${bounces} found: %c ████████ \t %c reflection: %c ████████ + %c ████████ -> %c ████████ %c`
+                    + `(k = ${debugData.kReflection.toFixed(2)}, e = ${energy.toFixed(2)})`,
+                    `color: rgb(${debugData.originalColor.join(",")})`,
+                    `color: black`,
+                    `color: rgb(${debugData.computedColor.join(",")})`,
+                    `color: rgb(${reflectionData.colorData.join(",")})`,
+                    `color: rgb(${colorData.join(",")})`,
+                    `color: black`,
+                );
+            }
+        }
+
+
+        return {distance, colorData};
     }
 }
 

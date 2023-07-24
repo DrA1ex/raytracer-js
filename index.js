@@ -168,7 +168,7 @@ function drawDebugProjection(intersections) {
     for (const {origin, angle, colorData, distance, totalDistance, level} of RayTracerInstance.debug.reflectionRays) {
         const kDepth = (Settings.reflection.count + 2 - level) / (Settings.reflection.count + 1);
         const anchorSize = 6 * kDepth;
-        const pos = Vector2.fromAngle(angle).scale(distance)
+        const pos = angle.scale(distance)
             .add(origin).scaled(mapScale);
 
         ColorUtils.gammaCorrection(colorData, gamma);

@@ -19,23 +19,39 @@ export class RayCastingSettings extends SettingsBase {
 
         debug: Property.bool("debug", false)
             .setName("Debug"),
+
+        debugColor: Property.bool("debug", false)
+            .setName("Debug Color").setDescription("Enable reflection color mixing logging (browser console)"),
     }
 
     static PropertiesDependencies = new Map([
-        [this.Properties.debug, new DependantProperties([this.Properties.accumulateLight], {invert: true})],
+        [this.Properties.debug, new DependantProperties([this.Properties.accumulateLight, this.Properties.debugColor], {
+            invert: {
+                [this.Properties.accumulateLight.key]: true,
+                [this.Properties.debugColor.key]: false
+            },
+        })],
+        [this.Properties.debugColor, new DependantProperties([this.Properties.traceSteps], {invert: true})],
     ])
 
-    get debug() {return this.config.debug;}
     get accumulateLight() {return this.config.accumulateLight;}
     get emissionRandomness() {return this.config.emissionRandomness;}
     get traceSteps() {return this.config.traceSteps;}
     get traceDistance() {return this.config.traceDistance;}
+    get debug() {return this.config.debug;}
+    get debugColor() {return this.config.debugColor;}
 
     constructor(values) {
         super(values);
 
-        if (this.debug === true) {
+        if (this.debug) {
             this.config.accumulateLight = false
+        } else {
+            this.config.debugColor = false;
+        }
+
+        if (this.debugColor) {
+            this.config.traceSteps = 1;
         }
     }
 }

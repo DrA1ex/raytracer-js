@@ -382,8 +382,9 @@ export class SettingsBase {
 
         for (const [prop, deps] of this.constructor.PropertiesDependencies.entries()) {
             const value = params.get(prop);
-            if (deps.options.invert === true ? value : !value) {
-                for (const depProp of deps.properties) {
+            for (const depProp of deps.properties) {
+                const invert = deps.options.invert && (deps.options.invert === true || deps.options.invert[depProp.key] === true);
+                if (invert ? value : !value) {
                     params.delete(depProp);
                 }
             }

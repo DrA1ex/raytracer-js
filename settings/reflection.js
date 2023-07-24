@@ -11,6 +11,10 @@ export class ReflectionSettings extends SettingsBase {
             .setName("Spread").setDescription("Reflection beam spread in degrees")
             .setConstraints(0.0, 180.0),
 
+        shininess: Property.float("reflection_shininess", 4)
+            .setName("Shininess")
+            .setConstraints(0.1, 256),
+
         energyLoss: Property.float("reflection_energy_loss", 0.1)
             .setName("Energy Loss")
             .setConstraints(0.0, 1.0),
@@ -18,5 +22,6 @@ export class ReflectionSettings extends SettingsBase {
 
     get count() {return this.config.count;}
     get spread() {return this.config.spread;}
+    get shininess() {return this.config.shininess;}
     get energyLoss() {return this.config.energyLoss;}
 }

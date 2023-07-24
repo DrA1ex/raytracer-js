@@ -78,7 +78,8 @@ export class SettingsController extends ControllerBase {
                     this.onParameterChanged(depProp, true);
 
                     if (!(depProp instanceof ReadOnlyProperty)) {
-                        this.propData.get(depProp).control.setEnabled(deps.options.invert ? !value : !!value);
+                        const invert = deps.options.invert && (deps.options.invert === true || deps.options.invert[depProp.key] === true);
+                        this.propData.get(depProp).control.setEnabled(invert ? !value : !!value);
                     }
                 }
             }
