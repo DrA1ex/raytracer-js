@@ -1,6 +1,7 @@
 import * as CommonUtils from "./utils/common.js";
 import * as ColorUtils from "./utils/color.js";
 import {Vector2} from "./utils/vector.js";
+import {colorMultiply} from "./utils/color.js";
 
 export class RayTracer {
     settings;
@@ -62,7 +63,7 @@ export class RayTracer {
             return null;
         }
 
-        const {direction, result: {colorData, normal, distance}} = ray;
+        const {direction, energy, result: {colorData, normal, distance}} = ray;
 
         if (this.settings.rayCasting.debug) {
             this.debug.reflectionRays.push({
@@ -86,6 +87,7 @@ export class RayTracer {
         if (reflectionData) {
             const kReflection = Math.abs(ray.nextDirection.dot(normal.perpendicular()));
             ColorUtils.mixColorAdd(colorData, reflectionData.colorData, kReflection);
+            ColorUtils.colorMultiply(colorData, energy);
         }
 
         return {
@@ -110,6 +112,7 @@ class Ray {
 
     nextOrigin = null;
     nextDirection = null;
+    nextEnergy = null;
 
     bounces = 0;
     totalDistance = 0;
@@ -147,6 +150,7 @@ class Ray {
         if (this.#emissionLeft === 0) return false;
         if (this.nextOrigin) this.origin = this.nextOrigin;
         if (this.nextDirection) this.direction = this.nextDirection;
+        if (this.nextEnergy !== null) this.energy = this.nextEnergy;
 
         this.#emissionLeft--;
         this.bounces++;
@@ -202,7 +206,7 @@ class Ray {
 
             this.#maxDistance -= distance;
             this.totalDistance += distance;
-            this.energy *= (1 - this.#settings.reflection.energyLoss);
+            this.nextEnergy = this.energy * (1 - this.#settings.reflection.energyLoss);
 
             return true;
         }

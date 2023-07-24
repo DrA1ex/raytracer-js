@@ -34,9 +34,9 @@ export function mixColorAdd(rgbOut, rgbMixed, factor = 1) {
     }
 }
 
-export function shadeColor(rgbOut, factor) {
+export function colorMultiply(rgbOut, factor) {
     for (let i = 0; i < 3; i++) {
-        rgbOut[i] = rgbOut[i] * (1 + factor);
+        rgbOut[i] = Math.min(255, rgbOut[i] * factor);
     }
 }
 
