@@ -3,7 +3,9 @@ Simple 2D raytracer/raycaster implementation.
 
 ## [Demo](https://dra1ex.github.io/raytracer-js/)
 
-Use **WASD** to move and **Cursor** to control camera
+**Desktop:** Use _WASD_ to move and _Mouse_ to control camera
+
+**Touch:** Swipe _Left/Right_ to look around; Swipe _Up/Down_ and **hold** to move
 
 <img width="800" alt="image" src="https://github.com/DrA1ex/raytracer-js/assets/1194059/512376a9-2799-447d-9bd6-c57485154e43">
 
