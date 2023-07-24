@@ -26,6 +26,36 @@ export class CameraControl {
     reconfigure(settings, mapData) {
         this.settings = settings;
         this.mapData = mapData
+
+        this.changed = true;
+    }
+
+    move(delta) {
+        const motionScalar = this.motionVector.normalize().lengthSquared();
+        if (!motionScalar) return;
+
+        const radAngle = CommonUtils.degToRad(this.cameraAngle);
+        const motionAngle = this.motionVector.angle(Vector2.fromAngle(radAngle));
+        const motionVector = Vector2.fromAngle(motionAngle)
+            .scaled(motionScalar * this.settings.camera.maxSpeed * delta);
+
+        const nextX = this.cameraX + motionVector.x;
+        const nextY = this.cameraY + motionVector.y;
+
+        if (nextX < 0 || nextY < 0
+            || nextX >= this.settings.map.mapSize
+            || nextY >= this.settings.map.mapSize) return;
+
+        const pixelIndex = Math.round(nextX) + Math.round(nextY) * this.settings.map.mapSize;
+
+        if (this.mapData[pixelIndex * 4 + 3] < 255) {
+            this.cameraX = nextX
+            this.cameraY = nextY;
+        }
+    }
+
+    frameRendered() {
+        this.changed = this.motionVector.lengthSquared() > 0;
     }
 
     setup() {
@@ -102,11 +132,19 @@ export class CameraControl {
 
         let initPosX;
         this.#node.ontouchstart = (e) => {
+            e.preventDefault();
+
             initPosX = e.touches[0].clientX;
             this.mouseLocked = true;
         }
-        this.#node.ontouchend = () => this.mouseLocked = false;
+        this.#node.ontouchend = (e) => {
+            e.preventDefault();
+
+            this.mouseLocked = false;
+        }
         this.#node.ontouchmove = (e) => {
+            e.preventDefault();
+
             if (!this.mouseLocked) return;
 
             const movementX = e.touches[0].clientX - initPosX;
@@ -139,30 +177,6 @@ export class CameraControl {
 
         document.onpointerlockerror = (_) => {
             alert("Unable to lock pointer. Try again later");
-        }
-    }
-
-    move(delta) {
-        const motionScalar = this.motionVector.normalize().lengthSquared();
-        if (!motionScalar) return;
-
-        const radAngle = CommonUtils.degToRad(this.cameraAngle);
-        const motionAngle = this.motionVector.angle(Vector2.fromAngle(radAngle));
-        const motionVector = Vector2.fromAngle(motionAngle)
-            .scaled(motionScalar * this.settings.camera.maxSpeed * delta);
-
-        const nextX = this.cameraX + motionVector.x;
-        const nextY = this.cameraY + motionVector.y;
-
-        if (nextX < 0 || nextY < 0
-            || nextX >= this.settings.map.mapSize
-            || nextY >= this.settings.map.mapSize) return;
-
-        const pixelIndex = Math.round(nextX) + Math.round(nextY) * this.settings.map.mapSize;
-
-        if (this.mapData[pixelIndex * 4 + 3] < 255) {
-            this.cameraX = nextX
-            this.cameraY = nextY;
         }
     }
 

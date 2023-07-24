@@ -32,7 +32,9 @@ export class ScreenSettings extends SettingsBase {
     constructor(values) {
         super(values);
 
+        const rect = document.body.getClientRects()[0];
+
         this.config.scale = values.scale ?? devicePixelRatio;
-        this.config.resolution = values.resolution ?? document.body.getClientRects()[0].height - 20;
+        this.config.resolution = values.resolution ?? Math.min(rect.height, rect.width) - 20;
     }
 }

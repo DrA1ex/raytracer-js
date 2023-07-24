@@ -85,8 +85,6 @@ function reconfigure(newSettings, force = false) {
     CameraCtrl.reconfigure(Settings, PixelData);
     RendererCtrl.reconfigure(Settings);
     MinimapCtrl.reconfigure(Settings);
-
-    CameraCtrl.changed = true;
 }
 
 function updateUrl(newSettings) {
@@ -128,7 +126,8 @@ function render(timestamp) {
     }
 
     RendererCtrl.render(position, radAngle, CameraCtrl.changed);
-    CameraCtrl.changed = CameraCtrl.motionVector.lengthSquared() > 0;
+
+    CameraCtrl.frameRendered();
 
     LastRenderTime = timestamp;
     requestAnimationFrame(render);
