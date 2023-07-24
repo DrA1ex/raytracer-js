@@ -5,7 +5,7 @@ Simple 2D raytracer/raycaster implementation.
 
 Use **WASD** to move and **Cursor** to control camera
 
-<img width="800" alt="image" src="https://github.com/DrA1ex/raytracer-js/assets/1194059/721a49a1-d768-49ce-9e68-e804a5719546">
+<img width="800" alt="image" src="https://github.com/DrA1ex/raytracer-js/assets/1194059/512376a9-2799-447d-9bd6-c57485154e43">
 
 
 ## Links
