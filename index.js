@@ -160,7 +160,7 @@ function drawDebugProjection(intersections) {
     const radAngle = CommonUtils.degToRad(CameraAngle);
 
     prCtx.drawImage(mapImage, 0, 0, screenResolution, screenResolution);
-    prCtx.fillStyle = "rgba(0,0,0,0.5)";
+    prCtx.fillStyle = "rgba(0,0,0,0.8)";
     prCtx.fillRect(0, 0, screenResolution, screenResolution);
 
     const mapScale = screenResolution / Settings.map.mapSize;

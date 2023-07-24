@@ -20,7 +20,7 @@ export class RayCastingSettings extends SettingsBase {
         debug: Property.bool("debug", false)
             .setName("Debug"),
 
-        debugColor: Property.bool("debug", false)
+        debugColor: Property.bool("debug_color", false)
             .setName("Debug Color").setDescription("Enable reflection color mixing logging (browser console)"),
     }
 
