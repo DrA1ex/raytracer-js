@@ -12,7 +12,7 @@ export class CameraSettings extends SettingsBase {
 
         maxSpeed: Property.float("max_speed", 60)
             .setName("Speed")
-            .setConstraints(0.1, 120),
+            .setConstraints(0.1, 240),
 
         gamma: Property.float("gamma", 2.0)
             .setName("Gama")

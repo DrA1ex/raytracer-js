@@ -1,14 +1,14 @@
-import {Vector2} from "./utils/vector.js";
-import {AppSettings} from "./settings/app.js";
-import * as CommonUtils from "./utils/common.js";
-import {Dialog, DialogPositionEnum, DialogTypeEnum} from "./ui/controls/dialog.js";
-import {SettingsController} from "./ui/controllers/settings.js";
-import {Button} from "./ui/controls/button.js";
-import {Control} from "./ui/controls/base.js";
-import {ComponentTypeEnum} from "./settings/enum.js";
-import {RayTracer} from "./tracing.js";
-import {CameraControl} from "./camera.js";
-import {MinimapRenderer, ProjectionRenderer} from "./render.js";
+import {Vector2} from "./src/utils/vector.js";
+import {AppSettings} from "./src/settings/app.js";
+import * as CommonUtils from "./src/utils/common.js";
+import {Dialog, DialogPositionEnum, DialogTypeEnum} from "./src/ui/controls/dialog.js";
+import {SettingsController} from "./src/ui/controllers/settings.js";
+import {Button} from "./src/ui/controls/button.js";
+import {Control} from "./src/ui/controls/base.js";
+import {ComponentTypeEnum} from "./src/settings/enum.js";
+import {RayTracer} from "./src/tracing.js";
+import {CameraControl} from "./src/camera.js";
+import {MinimapRenderer, ProjectionRenderer} from "./src/render.js";
 
 const MapImage = await CommonUtils.loadImage(new URL("/assets/map.svg", import.meta.url));
 

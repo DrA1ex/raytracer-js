@@ -17,8 +17,8 @@ export default {
         "main": {
             import: [
                 "./index.js",
-                "./global.css",
-                "./app.css",
+                "./style/global.css",
+                "./style/app.css",
             ]
         },
     },
