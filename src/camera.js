@@ -130,45 +130,41 @@ export class CameraControl {
             }
         }
 
-        let initPosX;
+        let initPos;
         this.#node.ontouchstart = (e) => {
             e.preventDefault();
 
-            initPosX = e.touches[0].clientX;
+            initPos = {x: e.touches[0].clientX, y: e.touches[0].clientY};
             this.mouseLocked = true;
         }
         this.#node.ontouchend = (e) => {
             e.preventDefault();
 
             this.mouseLocked = false;
+
+            this.controlKeys = 0;
+            this.#updateCameraMotionVector();
         }
         this.#node.ontouchmove = (e) => {
             e.preventDefault();
 
             if (!this.mouseLocked) return;
 
-            const movementX = e.touches[0].clientX - initPosX;
+            const movementX = e.touches[0].clientX - initPos.x;
             this.cameraAngle += movementX / 2;
-            initPosX = e.touches[0].clientX;
 
-            this.changed = true;
-        }
+            const movementY = e.touches[0].clientY - initPos.y;
+            if (Math.abs(movementY) > 3) {
+                const key = movementY < 0 ? ControlKeys.Up : ControlKeys.Down;
 
-        this.#node.onwheel = (e) => {
-            let key;
-            if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-                key = e.deltaX > 0 ? ControlKeys.Left : ControlKeys.Right;
-            } else {
-                key = e.deltaY > 0 ? ControlKeys.Up : ControlKeys.Down;
+                this.controlKeys = 0;
+                this.controlKeys |= key;
+                this.#updateCameraMotionVector();
             }
 
-            this.controlKeys |= key;
-            this.#updateCameraMotionVector();
+            initPos.x = e.touches[0].clientX;
 
-            setTimeout(() => {
-                this.controlKeys &= ~key;
-                this.#updateCameraMotionVector();
-            }, 100);
+            this.changed = true;
         }
 
         document.onpointerlockchange = (_) => {
