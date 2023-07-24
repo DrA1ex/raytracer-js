@@ -8,28 +8,19 @@ import {Button} from "./ui/controls/button.js";
 import {Control} from "./ui/controls/base.js";
 import {ComponentTypeEnum} from "./settings/enum.js";
 import {RayTracer} from "./tracing.js";
+import {CameraControl} from "./camera.js";
 
-let Settings = AppSettings.fromQueryParams();
-
-const mapImage = new Image();
-await new Promise((resolve, reject) => {
-    // noinspection JSValidateTypes
-    mapImage.src = new URL("/assets/map.svg", import.meta.url);
-    mapImage.onload = () => {
-        mapImage.onload = null;
-        mapImage.onerror = null;
-        resolve()
-    };
-
-    mapImage.onerror = (e) => {
-        alert(new Error(e.message ?? "Unable to load map"))
-        reject()
-    };
-});
+const MapImage = await CommonUtils.loadImage(new URL("/assets/map.svg", import.meta.url));
 
 const bgCanvas = document.getElementById("canvas");
 const oCanvas = document.getElementById("overlay");
 const prCanvas = document.getElementById("projection");
+
+let Settings = AppSettings.fromQueryParams();
+let PixelData = new Uint8Array(0);
+
+const RayTracerInstance = new RayTracer();
+const CameraCtrl = new CameraControl(prCanvas);
 
 const bgCtx = bgCanvas.getContext('2d');
 const oCtx = oCanvas.getContext('2d');
@@ -38,22 +29,11 @@ const prCtx = prCanvas.getContext("2d", {willReadFrequently: true});
 bgCtx.imageSmoothingEnabled = false;
 prCtx.imageSmoothingEnabled = false;
 
-let PixelData;
-let CameraAngle = 56;
-let CameraX = 138, CameraY = 42;
-
-const ControlKeys = {Left: 0b1, Up: 0b10, Right: 0b100, Down: 0b1000}
-let CameraControlKeys = 0;
-const CameraMotionVector = new Vector2();
-const CameraMaxSpeed = 60;
-
-let MouseLocked = false;
-let Changed = true;
+let LastRenderTime = performance.now();
 let CurrentIteration = 1;
 
-const RayTracerInstance = new RayTracer(Settings, PixelData);
-
 reconfigure(Settings, true);
+CameraCtrl.setup();
 
 const loadingScreen = Control.byId("loading-screen");
 const settingsCtrl = new SettingsController(document.getElementById("settings-content"), this)
@@ -77,7 +57,7 @@ bSettings.setOnClick(() => {
 settingsDialog.setOnDismissed(() => {
     prCanvas.style.left = "calc(50% - var(--size)/2)";
     bSettings.setEnabled(true);
-})
+});
 
 function reconfigure(newSettings, force = false) {
     const diff = Settings.compare(newSettings);
@@ -88,11 +68,10 @@ function reconfigure(newSettings, force = false) {
     if (force || diff.breaks.has(ComponentTypeEnum.map)) {
         initCanvas(bgCanvas, Settings.map.resolution, Settings.map.scale);
 
-        bgCtx.drawImage(mapImage, 0, 0, Settings.map.mapSize, Settings.map.mapSize);
+        bgCtx.drawImage(MapImage, 0, 0, Settings.map.mapSize, Settings.map.mapSize);
         bgCanvas.style.width = bgCanvas.style.height = Settings.miniMap.resolution + "px";
 
         PixelData = bgCtx.getImageData(0, 0, Settings.map.mapSize, Settings.map.mapSize).data;
-        RayTracerInstance.mapData = PixelData;
     }
 
     if (force || diff.breaks.has(ComponentTypeEnum.miniMap)) {
@@ -106,8 +85,10 @@ function reconfigure(newSettings, force = false) {
         prCtx.scale(Settings.screen.scale, Settings.screen.scale);
     }
 
-    RayTracerInstance.settings = Settings;
-    Changed = true;
+    RayTracerInstance.reconfigure(Settings, PixelData);
+    CameraCtrl.reconfigure(Settings, PixelData);
+
+    CameraCtrl.changed = true;
 }
 
 function updateUrl(newSettings) {
@@ -152,14 +133,12 @@ function drawProjection(intersections) {
     }
 }
 
-function drawDebugProjection(intersections) {
+function drawDebugProjection() {
     const screenResolution = Settings.screen.resolution;
     const far = Settings.camera.far;
     const gamma = Settings.camera.gamma;
 
-    const radAngle = CommonUtils.degToRad(CameraAngle);
-
-    prCtx.drawImage(mapImage, 0, 0, screenResolution, screenResolution);
+    prCtx.drawImage(MapImage, 0, 0, screenResolution, screenResolution);
     prCtx.fillStyle = "rgba(0,0,0,0.8)";
     prCtx.fillRect(0, 0, screenResolution, screenResolution);
 
@@ -193,120 +172,25 @@ function initCanvas(canvas, size, scale) {
     canvas.style.height = "var(--size)";
 }
 
-function updateCameraMotionVector() {
-    if (CameraControlKeys & ControlKeys.Up) {
-        CameraMotionVector.x = 1;
-    } else if (CameraControlKeys & ControlKeys.Down) {
-        CameraMotionVector.x = -1;
-    } else {
-        CameraMotionVector.x = 0;
-    }
-
-    if (CameraControlKeys & ControlKeys.Left) {
-        CameraMotionVector.y = 1;
-    } else if (CameraControlKeys & ControlKeys.Right) {
-        CameraMotionVector.y = -1;
-    } else {
-        CameraMotionVector.y = 0;
-    }
-}
-
-document.onkeydown = (e) => {
-    if (e.target.nodeName.toLowerCase() === "input") return;
-
-    switch (e.key) {
-        case  "ArrowUp":
-        case "w":
-            CameraControlKeys |= ControlKeys.Up;
-            break;
-
-        case  "ArrowDown":
-        case "s":
-            CameraControlKeys |= ControlKeys.Down;
-            break;
-
-        case  "ArrowLeft":
-        case "a":
-            CameraControlKeys |= ControlKeys.Left;
-            break;
-
-        case  "ArrowRight":
-        case "d":
-            CameraControlKeys |= ControlKeys.Right;
-            break;
-    }
-
-    updateCameraMotionVector();
-}
-
-document.onkeyup = (e) => {
-    if (e.target.nodeName.toLowerCase() === "input") return;
-
-    switch (e.key) {
-        case  "ArrowUp":
-        case "w":
-            CameraControlKeys &= ~ControlKeys.Up;
-            break;
-
-        case  "ArrowDown":
-        case "s":
-            CameraControlKeys &= ~ControlKeys.Down;
-            break;
-
-        case  "ArrowLeft":
-        case "a":
-            CameraControlKeys &= ~ControlKeys.Left;
-            break;
-
-        case  "ArrowRight":
-        case "d":
-            CameraControlKeys &= ~ControlKeys.Right;
-            break;
-    }
-
-    updateCameraMotionVector();
-}
-
-prCanvas.onmousemove = (e) => {
-    if (!MouseLocked) return;
-
-    CameraAngle += e.movementX / 2;
-    Changed = true;
-}
-
-prCanvas.onmousedown = async () => {
-    if (MouseLocked) return
-
-    await prCanvas.requestPointerLock();
-}
-
-document.onpointerlockchange = (_) => {
-    MouseLocked = !!document.pointerLockElement;
-}
-
-document.onpointerlockerror = (_) => {
-    alert("Unable to lock pointer. Try again later");
-}
-
-let lastRenderTime = performance.now();
-
 function render(timestamp) {
-    const delta = Math.min(0.1, (timestamp - lastRenderTime) / 1000);
-    lastRenderTime = timestamp;
+    const delta = Math.min(0.1, (timestamp - LastRenderTime) / 1000);
+    LastRenderTime = timestamp;
 
-    const radAngle = CommonUtils.degToRad(CameraAngle);
-    move(radAngle, delta);
+    CameraCtrl.move(delta);
 
-    const position = new Vector2(CameraX, CameraY);
+    const position = new Vector2(CameraCtrl.cameraX, CameraCtrl.cameraY);
+    const radAngle = CommonUtils.degToRad(CameraCtrl.cameraAngle);
 
-    drawMiniMap(radAngle);
+    if (CameraCtrl.changed) {
+        drawMiniMap(radAngle);
+    }
 
-    const shouldBuildProjection = Settings.rayCasting.accumulateLight || Changed;
+    const shouldBuildProjection = Settings.rayCasting.accumulateLight || CameraCtrl.changed;
     const intersections = shouldBuildProjection && RayTracerInstance.trace(position, radAngle);
 
     if (Settings.rayCasting.accumulateLight) {
         accumulateProjectionLight(intersections);
-    } else if (Changed) {
+    } else if (CameraCtrl.changed) {
         prCtx.clearRect(0, 0, Settings.screen.resolution, Settings.screen.resolution);
         if (!Settings.rayCasting.debug) {
             drawProjection(intersections);
@@ -315,31 +199,8 @@ function render(timestamp) {
         }
     }
 
-    Changed = CameraMotionVector.lengthSquared() > 0;
+    CameraCtrl.changed = CameraCtrl.motionVector.lengthSquared() > 0;
     requestAnimationFrame(render);
-}
-
-function move(radAngle, delta) {
-    const motionScalar = CameraMotionVector.normalize().lengthSquared();
-    if (!motionScalar) return;
-
-    const motionAngle = CameraMotionVector.angle(Vector2.fromAngle(radAngle));
-    const motionVector = Vector2.fromAngle(motionAngle)
-        .scaled(motionScalar * CameraMaxSpeed * delta);
-
-    const nextX = CameraX + motionVector.x;
-    const nextY = CameraY + motionVector.y;
-
-    if (nextX < 0 || nextY < 0
-        || nextX >= Settings.map.mapSize
-        || nextY >= Settings.map.mapSize) return;
-
-    const pixelIndex = Math.round(nextX) + Math.round(nextY) * Settings.map.mapSize;
-
-    if (PixelData[pixelIndex * 4 + 3] < 255) {
-        CameraX = nextX
-        CameraY = nextY;
-    }
 }
 
 function drawMiniMap(radAngle) {
@@ -351,8 +212,8 @@ function drawMiniMap(radAngle) {
     oCtx.fillStyle = 'red';
 
     const miniMapScale = resolution / Settings.map.resolution / Settings.map.scale;
-    const x = CameraX * miniMapScale,
-        y = CameraY * miniMapScale;
+    const x = CameraCtrl.cameraX * miniMapScale,
+        y = CameraCtrl.cameraY * miniMapScale;
     const coneDistance = Math.max(Settings.miniMap.coneMinDistance, Settings.miniMap.coneDistance * miniMapScale);
     const originSize = Math.max(Settings.miniMap.originMinSize, Settings.miniMap.originSize * miniMapScale);
 
@@ -374,7 +235,7 @@ function drawMiniMap(radAngle) {
 function accumulateProjectionLight(intersections) {
     let prevStateData = null;
 
-    if (Changed) {
+    if (CameraCtrl.changed) {
         prCtx.clearRect(0, 0, Settings.screen.resolution, Settings.screen.resolution);
         CurrentIteration = 1;
     } else {
@@ -386,7 +247,7 @@ function accumulateProjectionLight(intersections) {
     const currentState = prCtx.getImageData(0, 0, Settings.screen.screenSize, Settings.screen.screenSize);
     const currentStateData = currentState.data;
 
-    if (!Changed) {
+    if (!CameraCtrl.changed) {
         const factor = 1 / CurrentIteration;
         for (let i = 0; i < currentStateData.length; i += 4) {
             ColorUtils.mixColorLinearOffset(currentStateData, i, prevStateData, i, currentStateData, i, factor);

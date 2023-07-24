@@ -10,6 +10,10 @@ export class CameraSettings extends SettingsBase {
             .setName("Far").setDescription("Max visible distance")
             .setConstraints(10, 1e9),
 
+        maxSpeed: Property.float("max_speed", 60)
+            .setName("Speed")
+            .setConstraints(0.1, 120),
+
         gamma: Property.float("gamma", 2.0)
             .setName("Gama")
             .setConstraints(0.1, 4.0),
@@ -17,5 +21,6 @@ export class CameraSettings extends SettingsBase {
 
     get fov() {return this.config.fov;}
     get far() {return this.config.far;}
+    get maxSpeed() {return this.config.maxSpeed;}
     get gamma() {return this.config.gamma;}
 }

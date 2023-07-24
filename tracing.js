@@ -3,16 +3,16 @@ import * as ColorUtils from "./utils/color.js";
 import {Vector2} from "./utils/vector.js";
 
 export class RayTracer {
-    settings;
-    mapData;
+    #settings;
+    #mapData;
 
     debug = {
         reflectionRays: []
     };
 
-    constructor(settings, mapData) {
-        this.settings = settings;
-        this.mapData = mapData;
+    reconfigure(settings, mapData) {
+        this.#settings = settings;
+        this.#mapData = mapData;
     }
 
     /**
@@ -23,22 +23,22 @@ export class RayTracer {
     trace(originVector, radOrigAngle) {
         this.debug.reflectionRays = [];
         const intersections = [];
-        const fov = CommonUtils.degToRad(this.settings.camera.fov);
-        const {traceSteps} = this.settings.rayCasting;
+        const fov = CommonUtils.degToRad(this.#settings.camera.fov);
+        const {traceSteps} = this.#settings.rayCasting;
 
-        const dt = (this.settings.screen.resolution / 2) / Math.tan(fov / 2);
-        const step = this.settings.screen.resolution / traceSteps;
+        const dt = (this.#settings.screen.resolution / 2) / Math.tan(fov / 2);
+        const step = this.#settings.screen.resolution / traceSteps;
 
         const from = -Math.floor(traceSteps / 2);
         const to = Math.floor(traceSteps / 2);
 
         for (let i = from; i <= to; i++) {
-            const emissionRandom = this.settings.rayCasting.accumulateLight
-                ? Math.random() * this.settings.rayCasting.emissionRandomness : 0;
+            const emissionRandom = this.#settings.rayCasting.accumulateLight
+                ? Math.random() * this.#settings.rayCasting.emissionRandomness : 0;
             const currentStep = (i + emissionRandom) * step;
             const angle = radOrigAngle + Math.atan(currentStep / dt);
 
-            const ray = new Ray(originVector, Vector2.fromAngle(angle), this.settings, this.mapData);
+            const ray = new Ray(originVector, Vector2.fromAngle(angle), this.#settings, this.#mapData);
             const result = this.#traceRay(ray);
 
             if (result) {
@@ -66,28 +66,28 @@ export class RayTracer {
         } = ray;
 
         const debugData = {};
-        if (this.settings.rayCasting.debugColor) debugData.originalColor = colorData.slice(0, 3);
+        if (this.#settings.rayCasting.debugColor) debugData.originalColor = colorData.slice(0, 3);
 
         const kDiffuse = Math.max(0, direction.dot(normal));
-        const kSpecular = Math.pow(Math.max(0, direction.dot(normal.perpendicular())), this.settings.reflection.shininess);
+        const kSpecular = Math.pow(Math.max(0, direction.dot(normal.perpendicular())), this.#settings.reflection.shininess);
         for (let i = 0; i < colorData.length; i++) {
             const color = colorData[i] * (kDiffuse + kSpecular);
             colorData[i] = Math.min(255, Math.floor(color));
         }
 
-        if (this.settings.rayCasting.debugColor) debugData.computedColor = colorData.slice(0, 3);
+        if (this.#settings.rayCasting.debugColor) debugData.computedColor = colorData.slice(0, 3);
 
         const reflectionData = this.#traceRay(ray);
         if (reflectionData) {
-            const kReflection = Math.pow(Math.abs(ray.nextDirection.dot(normal.perpendicular())), this.settings.reflection.shininess);
+            const kReflection = Math.pow(Math.abs(ray.nextDirection.dot(normal.perpendicular())), this.#settings.reflection.shininess);
             ColorUtils.mixColorAdd(colorData, reflectionData.colorData, kReflection);
             ColorUtils.colorMultiply(colorData, energy);
 
-            if (this.settings.rayCasting.debug) debugData.kReflection = kReflection;
+            if (this.#settings.rayCasting.debug) debugData.kReflection = kReflection;
         }
 
 
-        if (this.settings.rayCasting.debug) {
+        if (this.#settings.rayCasting.debug) {
             this.debug.reflectionRays.push({
                 origin: origin,
                 angle: direction,
@@ -97,7 +97,7 @@ export class RayTracer {
                 level: bounces
             });
 
-            if (this.settings.rayCasting.debugColor && reflectionData) {
+            if (this.#settings.rayCasting.debugColor && reflectionData) {
                 console.log(
                     `#${bounces} found: %c ████████ \t %c reflection: %c ████████ + %c ████████ -> %c ████████ %c`
                     + `(k = ${debugData.kReflection.toFixed(2)}, e = ${energy.toFixed(2)})`,
