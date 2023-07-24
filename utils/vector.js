@@ -244,6 +244,8 @@ export class Vector2 {
      * @return {Vector2}
      */
     rotate(angle, anchor = null) {
+        if (angle === 0) return this;
+
         anchor = anchor ?? new Vector2();
 
         const cos = Math.cos(angle);

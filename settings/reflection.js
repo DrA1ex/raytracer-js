@@ -7,10 +7,6 @@ export class ReflectionSettings extends SettingsBase {
             .setName("Count").setDescription("Maximum reflections for one ray beam")
             .setConstraints(0, 100),
 
-        subStepCount: Property.int("reflection_sub_step_count", 4)
-            .setName("Sub Step count").setDescription("Count of rays emitted per one reflection")
-            .setConstraints(0, 100),
-
         spread: Property.float("reflection_spread", 2.0)
             .setName("Spread").setDescription("Reflection beam spread in degrees")
             .setConstraints(0.0, 180.0),
@@ -21,7 +17,6 @@ export class ReflectionSettings extends SettingsBase {
     }
 
     get count() {return this.config.count;}
-    get subStepCount() {return this.config.subStepCount;}
     get spread() {return this.config.spread;}
     get energyLoss() {return this.config.energyLoss;}
 }
