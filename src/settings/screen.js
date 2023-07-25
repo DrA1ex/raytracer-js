@@ -35,6 +35,7 @@ export class ScreenSettings extends SettingsBase {
         const rect = document.body.getClientRects()[0];
 
         this.config.scale = values.scale ?? devicePixelRatio;
-        this.config.resolution = values.resolution ?? Math.min(rect.height, rect.width) - 20;
+        const offset = 2 * parseFloat(getComputedStyle(document.body).fontSize);
+        this.config.resolution = values.resolution ?? Math.min(rect.height, rect.width) - offset;
     }
 }
