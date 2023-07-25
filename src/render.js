@@ -11,9 +11,11 @@ export class ProjectionRenderer {
 
     currentIteration = 1;
 
+    #previousFrameData;
+
     constructor(canvas, mapImage, raytracer) {
         this.#canvas = canvas;
-        this.#ctx = canvas.getContext("2d", {willReadFrequently: true});
+        this.#ctx = canvas.getContext("2d");
 
         this.#mapImage = mapImage;
         this.#raytracer = raytracer;
@@ -32,6 +34,8 @@ export class ProjectionRenderer {
         if (this.#settings.rayCasting.accumulateLight) {
             this.#accumulateProjectionLight(data, changed);
         } else if (changed) {
+            if (this.#previousFrameData) this.#previousFrameData = null;
+
             this.#ctx.clearRect(0, 0, this.#settings.screen.resolution, this.#settings.screen.resolution);
 
             if (!this.#settings.rayCasting.debug) {
@@ -96,15 +100,11 @@ export class ProjectionRenderer {
     }
 
     #accumulateProjectionLight(data, changed) {
-        let prevStateData = null;
-
         const {resolution, screenSize} = this.#settings.screen;
 
         if (changed) {
             this.#ctx.clearRect(0, 0, resolution, resolution);
             this.currentIteration = 1;
-        } else {
-            prevStateData = this.#ctx.getImageData(0, 0, screenSize, screenSize).data;
         }
 
         this.#drawProjection(data);
@@ -115,10 +115,14 @@ export class ProjectionRenderer {
         if (!changed) {
             const factor = 1 / this.currentIteration;
             for (let i = 0; i < currentStateData.length; i += 4) {
-                ColorUtils.mixColorLinearOffset(currentStateData, i, prevStateData, i, currentStateData, i, factor);
+                ColorUtils.mixColorLinearOffset(currentStateData, i, this.#previousFrameData, i, currentStateData, i, factor);
             }
 
             this.#ctx.putImageData(currentState, 0, 0);
+
+            this.#previousFrameData = currentState.data;
+        } else {
+            this.#previousFrameData = this.#ctx.getImageData(0, 0, screenSize, screenSize).data;
         }
 
         this.currentIteration++;
