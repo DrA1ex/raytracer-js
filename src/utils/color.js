@@ -23,7 +23,11 @@ export function mixColorMultiply(rgbOut, rgbMixed) {
  */
 export function mixColorLinearOffset(out, indexOut, rgb1, index1, rgb2, index2, factor = 0.5) {
     for (let i = 0; i < 3; i++) {
-        const mixed = rgb1[index1 + i] - (rgb1[index1 + i] - rgb2[index2 + i]) * factor;
+        const mixed =
+            rgb1[index1 + 3] !== 0
+                ? rgb1[index1 + i] - (rgb1[index1 + i] - rgb2[index2 + i]) * factor
+                : rgb2[index1 + i];
+
         out[i + indexOut] = Math.max(0, Math.min(255, Math.floor(mixed)));
     }
 }
