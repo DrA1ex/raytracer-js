@@ -178,9 +178,10 @@ class Ray {
         const traceDirection = new Vector2(Math.sign(this.direction.x), Math.sign(this.direction.y));
 
         const step = new Vector2(
-            this.direction.scaled(1 / this.direction.x).length(),
-            this.direction.scaled(1 / this.direction.y).length()
+            Math.abs(1 / this.direction.x),
+            Math.abs(1 / this.direction.y)
         );
+
         const currentPath = new Vector2((
             traceDirection.x > 0 ? Math.trunc(this.origin.x) - this.origin.x
                 : this.origin.x - Math.trunc(this.origin.x)) * step.x,
